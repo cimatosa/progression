@@ -6,6 +6,7 @@ import copy
 import datetime
 import math
 import multiprocessing as mp
+from multiprocessing.sharedctypes import Synchronized
 import signal
 import subprocess as sp
 import sys
@@ -14,12 +15,27 @@ import traceback
 import os
 import warnings
 import logging
+from logging.handlers import QueueHandler
+from logging.handlers import QueueListener
 
-cons_hand = logging.StreamHandler(stream = sys.stderr)
-cons_hand.setLevel(logging.DEBUG)
-fmt = logging.Formatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
-cons_hand.setFormatter(fmt)
+class MultiLineFormatter(logging.Formatter):
+    def format(self, record):
+        _str = logging.Formatter.format(self, record)
+        header = str.split(record.message)[0]
+        _str = _str.replace('\n', '\n' + ' '*len(header))
+        return _str
 
+
+def_handl = logging.StreamHandler(stream = sys.stderr)
+def_handl.setLevel(logging.DEBUG)
+fmt = MultiLineFormatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
+def_handl.setFormatter(fmt)
+log = logging.getLogger(__name__)
+log.addHandler(def_handl)
+
+def get_prefix_Formatter(prefix, fmt):
+    msg_idx = fmt.find('%(message)s')
+    return logging.Formatter(fmt[:msg_idx]+prefix+fmt[msg_idx:])
 
 try:
     from shutil import get_terminal_size as shutil_get_terminal_size
@@ -38,23 +54,24 @@ if sys.version_info[0] == 2:
     _jm_compatible_bytearray = lambda x: x
 else:
     _jm_compatible_bytearray = bytearray
+
+
+def get_identifier(name=None, pid=None, bold=True):
+    if pid is None:
+        pid = os.getpid()
+
+    if bold:
+        esc_bold = ESC_BOLD
+        esc_no_char_attr = ESC_NO_CHAR_ATTR
+    else:
+        esc_bold = ""
+        esc_no_char_attr = ""
+
+    if name is None:
+        return "{}PID {}{}".format(esc_bold, pid, esc_no_char_attr)
+    else:
+        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)
     
-class PrefixedLog(logging.Logger):
-    def __init__(self, prefix, *args, **kwargs):
-        self.prefix = prefix
-        super(PrefixedLog, self).__init__(*args, **kwargs)
-        
-    def debug(self, msg, *args, **kwargs):
-        super(PrefixedLog, self).debug(self.prefix+msg, *args, **kwargs)
-    def info(self, msg, *args, **kwargs):
-        super(PrefixedLog, self).info(self.prefix+msg, *args, **kwargs)
-    def warning(self, msg, *args, **kwargs):
-        super(PrefixedLog, self).warning(self.prefix+msg, *args, **kwargs)
-    def error(self, msg, *args, **kwargs):
-        super(PrefixedLog, self).error(self.prefix+msg, *args, **kwargs)
-    def critical(self, msg, *args, **kwargs):
-        super(PrefixedLog, self).critical(self.prefix+msg, *args, **kwargs)
-        
 
 class Loop(object):
     """
@@ -119,25 +136,25 @@ class Loop(object):
             repeating -> subprocess terminates when func returns and sleep time interval 
             has passed.
         """
-        self._proc = None        
-        self._prefix = self._get_prefix()
-        
+        self._proc = None
+
         if name is None:
             self._name = self.__class__.__name__
-        
-        self.log = logging.getLogger(self._name)
-        
+        else:
+            self._name = name
+
+        self._prefix = get_identifier(name = self._name, pid='main', bold=True)+' '
+
         if logging_level is None:
             if verbose == 0:
-                self.log.setLevel(logging.ERROR)
+                log.setLevel(logging.ERROR)
             elif verbose == 1:
-                self.log.setLevel(logging.INFO)
+                log.setLevel(logging.INFO)
             else:
-                self.log.setLevel(logging.DEBUG)
+                log.setLevel(logging.DEBUG)
         else:
-            self.log.setLevel(logging_level)
-        self.log.addHandler(cons_hand)             
-        
+            log.setLevel(logging_level)
+
         self.func = func
         self.args = args
         self.interval = interval
@@ -148,25 +165,18 @@ class Loop(object):
         self._sigterm = sigterm
         
         self._auto_kill_on_last_resort = auto_kill_on_last_resort
-        
-    def _get_prefix(self):
-        if self._proc is None:
-            return "(none) "
-        else:
-            return "({}) ".format(self._proc.pid)
 
-        
     def __enter__(self):
         return self
     
     def __exit__(self, *exc_args):
         # normal exit        
         if not self.is_alive():
-            self.log.debug("{}stopped on context exit", self._prefix)
+            log.debug("%sstopped on context exit", self._prefix)
             return
         
         # loop still runs on context exit -> __cleanup
-        self.log.debug("{}still running on context exit", self._prefix)
+        log.debug("%sstill running on context exit", self._prefix)
         self.__cleanup()
 
     def __cleanup(self):
@@ -186,16 +196,15 @@ class Loop(object):
         """
         # set run to False and wait some time -> see what happens            
         self.run = False
-        if check_process_termination(proc                     = self._proc, 
-                                     identifier               = self._prefix, 
+        if check_process_termination(proc                     = self._proc,
+                                     prefix                   = self._prefix,
                                      timeout                  = 2*self.interval,
-                                     log                      = self.log,
+                                     log                      = log,
                                      auto_kill_on_last_resort = self._auto_kill_on_last_resort):
-            self.log.debug("{}cleanup successful", self._prefix)
+            log.debug("%scleanup successful", self._prefix)
             self._proc = None
-            self._prefix = self._get_prefix()
         else:
-            raise RuntimeError("{}cleanup FAILED!", self._prefix)
+            raise RuntimeError("{}cleanup FAILED!".format(self._prefix))
             
 
     @staticmethod
@@ -203,16 +212,13 @@ class Loop(object):
         """
             to be executed as a separate process (that's why this functions is declared static)
         """
-        log = logging.getLogger(name)
+        prefix = get_identifier(name)+' '
+        log = logging.getLogger("log_{}".format(get_identifier(name)))
         log.setLevel(logging_level)
-        log.addHandler(logging.handlers.QueueHandler(log_queue))
+        log.addHandler(QueueHandler(log_queue))
         
-        
-        # implement the process specific signal handler
-        prefix = "({}) ".format(os.getgid())
-        
-        
-        SIG_handler_Loop(shared_mem_run, sigint, sigterm, identifier, verbose)
+
+        SIG_handler_Loop(shared_mem_run, sigint, sigterm, log, prefix)
 
         while shared_mem_run.value:
             # in pause mode, simply sleep 
@@ -226,18 +232,16 @@ class Loop(object):
                     err, val, trb = sys.exc_info()
                     print(ESC_NO_CHAR_ATTR, end='')
                     sys.stdout.flush()
-                    if verbose > 0:
-                        print("{}: error {} occurred in Loop class calling 'func(*args)'".format(identifier, err))
-                        traceback.print_exc()
+                    log.error("%serror %s occurred in loop alling 'func(*args)'", prefix, err)
+                    log.debug("show traceback.print_exc()\n%s", traceback.print_exc())
                     return
 
                 if quit_loop is True:
                     return
                 
             time.sleep(interval)
-            
-        if verbose > 1:
-            print("{}: _wrapper_func terminates gracefully".format(identifier))
+
+        log.debug("%s_wrapper_func terminates gracefully", prefix)
 
     def start(self):
         """
@@ -245,19 +249,18 @@ class Loop(object):
         """
 
         if self.is_alive():
-            if self.verbose > 0:
-                print("{}: is already running".format(self._identifier))
+            log.warn("%sa process with pid %s is already running", self._prefix, self._proc.pid)
             return
             
         self.run = True
+        log_queue = mp.Queue()
+        QueueListener(log_queue, def_handl)
         self._proc = mp.Process(target = Loop._wrapper_func, 
                                 args = (self.func, self.args, self._run, self._pause, self.interval, 
-                                        self.verbose, self._sigint, self._sigterm, self._name),
+                                        log_queue, self._sigint, self._sigterm, self._name, log.level),
                                 name=self._name)
         self._proc.start()
-        self._identifier = get_identifier(self._name, self.getpid())
-        if self.verbose > 1:
-            print("{}: started as new loop process".format(self._identifier))
+        log.debug("%sstarted a new process with pid %s", self._prefix, self._proc.pid)
         
     def stop(self):
         """
@@ -271,8 +274,7 @@ class Loop(object):
         if self.is_alive():
             self._proc.terminate()
         else:
-            if self.verbose > 0:
-                print("PID None: there is no running loop to stop")
+            log.warn("%sthere is no running process to stop", self._prefix)
             return
         
         self.__cleanup()
@@ -284,12 +286,6 @@ class Loop(object):
         """
         if self.is_alive():
             self._proc.join(timeout)
-            
-    def getpid(self):
-        """
-        return the process id of the spawned process
-        """
-        return self._proc.pid
     
     def is_alive(self):
         if self._proc == None:
@@ -298,25 +294,17 @@ class Loop(object):
             return self._proc.is_alive()
         
     def pause(self):
-        if not self.run:
-            if self.verbose > 0:
-                print("{} is not running -> can not pause".format(self._identifier))
-        
-        if self._pause.value == True:
-            if self.verbose > 1:
-                print("{} is already in pause mode!".format(self._identifier))
-        self._pause.value = True
+        if self.run:
+            self._pause.value = True
+            log.debug("%sprocess with pid %s paused", self._prefix, self._proc.pid)
         
     def resume(self):
-        if not self.run:
-            if self.verbose > 0:
-                print("{} is not running -> can not resume".format(self._identifier))
-        
-        if self._pause.value == False:
-            if self.verbose > 1:
-                print("{} is not in pause mode -> can not resume!".format(self._identifier))
-                
-        self._pause.value = False
+        if self.run:
+            self._pause.value = False
+            log.debug("%sprocess with pid %s resumed", self._prefix, self._proc.pid)
+
+    def getpid(self):
+        return self._proc.pid
     
     @property
     def run(self):
@@ -398,8 +386,8 @@ class Progress(Loop):
                  verbose           = 0,
                  sigint            = 'stop', 
                  sigterm           = 'stop',
-                 name              = 'progress',
-                 info_line       = None):
+                 name              = None,
+                 info_line         = None):
         """       
         count [mp.Value] - shared memory to hold the current state, (list or single value)
         
@@ -419,15 +407,15 @@ class Progress(Loop):
         
         verbose, sigint, sigterm -> see loop class  
         """
-        self.name = name
-        self._identifier = get_identifier(self.name, pid='not started')
-        
+
         try:
             for c in count:
-                assert isinstance(c, mp.sharedctypes.Synchronized), "each element of 'count' must be if the type multiprocessing.sharedctypes.Synchronized"
+                if not isinstance(c, Synchronized):
+                    raise ValueError("Each element of 'count' must be if the type multiprocessing.sharedctypes.Synchronized")
             self.is_multi = True
         except TypeError:
-            assert isinstance(count, mp.sharedctypes.Synchronized), "'count' must be if the type multiprocessing.sharedctypes.Synchronized"
+            if not isinstance(count, Synchronized):
+                raise ValueError("'count' must be if the type multiprocessing.sharedctypes.Synchronized")
             self.is_multi = False
             count = [count]
         
@@ -437,11 +425,13 @@ class Progress(Loop):
             if self.is_multi:
                 try:
                     for m in max_count:
-                        assert isinstance(m, mp.sharedctypes.Synchronized), "each element of 'max_count' must be if the type multiprocessing.sharedctypes.Synchronized"
+                        if not isinstance(m, Synchronized):
+                            raise ValueError("each element of 'max_count' must be if the type multiprocessing.sharedctypes.Synchronized")
                 except TypeError:
                     raise TypeError("'max_count' must be iterable")
             else:
-                assert isinstance(max_count, mp.sharedctypes.Synchronized), "'max_count' must be of the type multiprocessing.sharedctypes.Synchronized"
+                if not isinstance(max_count, Synchronized):
+                    raise ValueError("'max_count' must be of the type multiprocessing.sharedctypes.Synchronized")
                 max_count = [max_count]
         else:
             max_count = [None] * self.len
@@ -469,16 +459,12 @@ class Progress(Loop):
                 # no prepend given
                 self.prepend.append('')
             else:
-                try:
-                    # assume list of prepend, (needs to be a sequence)
-                    # except if prepend is an instance of string
-                    # the assert will cause the except to be executed
-                    assert not isinstance(prepend, str)
-                    self.prepend.append(prepend[i])
-                except:
-                    # list fails -> assume single prepend for all 
+                if isinstance(prepend, str):
                     self.prepend.append(prepend)
-                                                       
+                else:
+                    # assume list of prepend, (needs to be a sequence)
+                    self.prepend.append(prepend[i])
+
         self.max_count = max_count  # list of multiprocessing value type
         self.count = count          # list of multiprocessing value type
         
@@ -491,28 +477,30 @@ class Progress(Loop):
         self.info_line = info_line
         
         # setup loop class with func
-        super(Progress, self).__init__(func=Progress.show_stat_wrapper_multi, 
-                         args=(self.count,
-                               self.last_count, 
-                               self.start_time,
-                               self.max_count, 
-                               self.speed_calc_cycles,
-                               self.width, 
-                               self.q,
-                               self.last_old_count,
-                               self.last_old_time,
-                               self.prepend,
-                               self.__class__.show_stat,
-                               self.len,
-                               self.add_args,
-                               self.lock,
-                               self.info_line), 
-                         interval=interval, 
-                         verbose=verbose, 
-                         sigint=sigint, 
-                         sigterm=sigterm, 
-                         name=name,
-                         auto_kill_on_last_resort=True)
+        Loop.__init__(self,
+                      func=Progress.show_stat_wrapper_multi,
+
+                      args = (self.count,
+                              self.last_count,
+                              self.start_time,
+                              self.max_count,
+                              self.speed_calc_cycles,
+                              self.width,
+                              self.q,
+                              self.last_old_count,
+                              self.last_old_time,
+                              self.prepend,
+                              self.__class__.show_stat,
+                              self.len,
+                              self.add_args,
+                              self.lock,
+                              self.info_line),
+                      interval = interval,
+                      verbose  = verbose,
+                      sigint   = sigint,
+                      sigterm  = sigterm,
+                      name     = name,
+                      auto_kill_on_last_resort = True)
 
     def __exit__(self, *exc_args):
         self.stop()
@@ -740,9 +728,9 @@ class Progress(Loop):
         # terminal.
         
         if (self.__class__.__name__ in TERMINAL_PRINT_LOOP_CLASSES):
-            if not terminal_reserve(progress_obj=self, verbose=self.verbose, identifier=self._identifier):
+            if not terminal_reserve(progress_obj=self, identifier=self._prefix):
                 if self.verbose > 1:
-                    print("{}: tty already reserved, NOT starting the progress loop!".format(self._identifier))
+                    print("%stty already reserved, NOT starting the progress loop!".format(self._prefix))
                 return
         
         super(Progress, self).start()
@@ -760,7 +748,7 @@ class Progress(Loop):
         self._auto_kill_on_last_resort = make_sure_its_down 
             
         super(Progress, self).stop()
-        terminal_unreserve(progress_obj=self, verbose=self.verbose, identifier=self._identifier)
+        terminal_unreserve(progress_obj=self, verbose=self.verbose, identifier=self._prefix)
 
         if self.show_on_exit:
             self._show_stat()
@@ -1149,36 +1137,6 @@ class ProgressBarCounterFancy(ProgressBarCounter):
         print(s_c + ' '*(width - len_string_without_ESC(s_c))) 
                         
 
-class ProgressSilentDummy(Progress):
-    def __init__(self, **kwargs):
-        raise DeprecationWarning("do not use this dummy class, if you want a silent progress, simply do not trigger 'start'!")
-        pass
-
-    def __exit__(self, *exc_args):
-        pass
-    
-    def start(self):
-        pass
-    
-    def _reset_i(self, i):
-        pass
-    
-    def reset(self, i):
-        pass
-    
-    def _reset_all(self):
-        pass
-        
-    def stop(self):
-        pass
-    
-    def pause(self):
-        pass
-    
-    def resume(self):
-        pass
-
-    
 class SIG_handler_Loop(object):
     """class to setup signal handling for the Loop class
     
@@ -1195,10 +1153,8 @@ class SIG_handler_Loop(object):
         self.shared_mem_run = shared_mem_run
         self.set_signal(signal.SIGINT, sigint)
         self.set_signal(signal.SIGTERM, sigterm)
-        self.verbose=verbose
-        self.identifier = identifier
-        if self.verbose > 1:
-            print("{}: setup signal handler for loop (SIGINT:{}, SIGTERM:{})".format(self.identifier, sigint, sigterm))
+        self.prefix = prefix
+        log.info("%ssetup signal handler for loop (SIGINT:%s, SIGTERM:%s)", self.prefix, sigint, sigterm)
 
     def set_signal(self, sig, handler_str):
         if handler_str == 'ign':
@@ -1206,55 +1162,14 @@ class SIG_handler_Loop(object):
         elif handler_str == 'stop':
             signal.signal(sig, self._stop_on_signal)
         else:
-            raise TypeError("unknown signal hander string '{}'".format(handler_str))
+            raise TypeError("unknown signal hander string '%s'", handler_str)
     
     def _ignore_signal(self, signal, frame):
         pass
 
     def _stop_on_signal(self, signal, frame):
-        if self.verbose > 1:
-            print("{}: received sig {} -> set run false".format(self.identifier, signal_dict[signal]))
+        log.info("%sreceived sig %s -> set run false", self.prefix, signal_dict[signal])
         self.shared_mem_run.value = False
-
-
-# class ProgressCounter(Progress):
-#     """
-#         simple Progress counter, not using the max_count information
-#     """
-#     def __init__(self, 
-#                  count, 
-#                  max_count=None,
-#                  prepend=None,
-#                  speed_calc_cycles=10,
-#                  width='auto', 
-#                  interval=1, 
-#                  verbose=0,
-#                  sigint='stop', 
-#                  sigterm='stop',
-#                  name='progress_counter'):
-#         
-#         super(ProgressCounter, self).__init__(count=count,
-#                          max_count=max_count,
-#                          prepend=prepend,
-#                          speed_calc_cycles=speed_calc_cycles,
-#                          width=width,
-#                          interval=interval,
-#                          verbose = verbose,
-#                          sigint=sigint,
-#                          sigterm=sigterm,
-#                          name=name)
-#         
-#     @staticmethod        
-#     def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
-#         if max_count_value is not None:
-#             max_count_str = "/{}".format(max_count_value)
-#         else:
-#             max_count_value = count_value + 1 
-#             max_count_str = ""
-#             
-#         s = "{}{} [{}{}] ({})".format(prepend, humanize_time(tet), count_value, max_count_str, humanize_speed(speed))
-#         print(s)
-
 
 def ESC_MOVE_LINE_UP(n):
     return "\033[{}A".format(n)
@@ -1276,47 +1191,47 @@ def StringValue(num_of_bytes):
     return mp.Array('c', _jm_compatible_bytearray(num_of_bytes), lock=True)
 
 
-def check_process_termination(proc, identifier, timeout, log, auto_kill_on_last_resort = False):
+def check_process_termination(proc, prefix, timeout, log, auto_kill_on_last_resort = False):
     proc.join(timeout)
     if not proc.is_alive():
-        log.debug("{}loop termination within given timeout of {}s SUCCEEDED!", identifier, timeout)
+        log.debug("%stermination of process (pid %s) within timeout of %ss SUCCEEDED!", prefix, proc.pid, timeout)
         return True
         
     # process still runs -> send SIGTERM -> see what happens
-    log.warning("{}loop termination within given timeout of {}s FAILED!", identifier, timeout)
+    log.warning("%stermination of process (pid %s) within given timeout of %ss FAILED!", prefix, proc.pid, timeout)
  
     proc.terminate()
     new_timeout = 3*timeout
-    log.debug("{}wait for termination (timeout {})", identifier, new_timeout)     
+    log.debug("%swait for termination (timeout %s)", prefix, new_timeout)
     proc.join(new_timeout)
     if not proc.is_alive():
-        log.debug("{}loop termination via SIGTERM with timeout of {}s SUCCEEDED!", identifier, new_timeout)
+        log.info("%stermination of process (pid %s) via SIGTERM with timeout of %ss SUCCEEDED!", prefix, proc.pid, new_timeout)
         return True
         
     
-    log.warning("{}loop termination via SIGTERM with timeout of {}s FAILED!", identifier, new_timeout)
+    log.warning("%stermination of process (pid %s) via SIGTERM with timeout of %ss FAILED!", prefix, proc.pid, new_timeout)
 
     answer = 'k' if auto_kill_on_last_resort else '_'
     while True:
         if answer == 'k':
-            log.debug("{}send SIGKILL", identifier)
+            log.warning("%ssend SIGKILL to process with pid %s", prefix, proc.pid)
             os.kill(proc.pid, signal.SIGKILL)
             time.sleep(0.1)
         else:
-            log.debug("{}send SIGTERM", identifier)
+            log.info("%ssend SIGTERM to process with pid %s", prefix, proc.pid)
             os.kill(proc.pid, signal.SIGTERM)
             time.sleep(0.1)
             
         if not proc.is_alive():
-            log.debug("{}has stopped running!", identifier)
+            log.info("%sprocess (pid %s) has stopped running!", prefix, proc.pid)
             return True
         else:
-            log.warning("{}still running!", identifier)
+            log.warning("%sprocess (pid %s) is still running!", prefix, proc.pid)
 
-        print("the process {} seem still running".format(identifier))
+        print("the process (pid %s) seems still running".format(proc.pid))
         answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
         if answer == 'ignore':
-            log.debug("{}ignore process {}", identifier)
+            log.warning("%signore process %s", prefix, proc.pid)
             return False
         elif answer != 'k':
             answer = ''
@@ -1384,14 +1299,12 @@ def get_terminal_size(defaultw=80):
                     return (defaultw, None)
 
     
-def get_terminal_width(default=80, name=None, verbose=0):
+def get_terminal_width(default=80, name=None):
     id = get_identifier(name=name)
     try:
         width = get_terminal_size(defaultw=default)[0]
     except:
         width = default
-    if verbose > 1:
-        print("{}: use terminal width {}".format(id, width))
     return width
 
 
@@ -1448,7 +1361,7 @@ def remove_ESC_SEQ_from_string(s):
     return s
 
 
-def terminal_reserve(progress_obj, terminal_obj=None, verbose=0, identifier=None):
+def terminal_reserve(progress_obj, terminal_obj=None, identifier=None):
     """ Registers the terminal (stdout) for printing.
     
     Useful to prevent multiple processes from writing progress bars
@@ -1470,24 +1383,19 @@ def terminal_reserve(progress_obj, terminal_obj=None, verbose=0, identifier=None
     
     if identifier is None:
         identifier = ''
-    else:
-        identifier = identifier + ': ' 
+
     
     if terminal_obj in TERMINAL_RESERVATION:    # terminal was already registered
-        if verbose > 1:
-            print("{}this terminal {} has already been added to reservation list".format(identifier, terminal_obj))
+        log.debug("%sthis terminal %s has already been added to reservation list", identifier, terminal_obj)
         
         if TERMINAL_RESERVATION[terminal_obj] is progress_obj:
-            if verbose > 1:
-                print("{}we {} have already reserved this terminal {}".format(identifier, progress_obj, terminal_obj))
+            log.debug("%swe %s have already reserved this terminal %s", identifier, progress_obj, terminal_obj)
             return True
         else:
-            if verbose > 1:
-                print("{}someone else {} has already reserved this terminal {}".format(identifier, TERMINAL_RESERVATION[terminal_obj], terminal_obj))
+            log.debug("%ssomeone else %s has already reserved this terminal %s", identifier, TERMINAL_RESERVATION[terminal_obj], terminal_obj)
             return False
     else:                                       # terminal not yet registered
-        if verbose > 1:
-            print("{}terminal {} was reserved for us {}".format(identifier, terminal_obj, progress_obj))
+        log.debug("%sterminal %s was reserved for us %s", identifier, terminal_obj, progress_obj)
         TERMINAL_RESERVATION[terminal_obj] = progress_obj
         return True
 
@@ -1514,16 +1422,13 @@ def terminal_unreserve(progress_obj, terminal_obj=None, verbose=0, identifier=No
     
     po = TERMINAL_RESERVATION.get(terminal_obj)
     if po is None:
-        if verbose > 1:
-            print("{}terminal {} was not reserved, nothing happens".format(identifier, terminal_obj))
+        log.debug("%sterminal %s was not reserved, nothing happens", identifier, terminal_obj)
     else:
         if po is progress_obj:
-            if verbose > 1:
-                print("{}terminal {} now unreserned".format(identifier, terminal_obj))
+            log.debug("%sterminal %s now unreserned", identifier, terminal_obj)
             del TERMINAL_RESERVATION[terminal_obj]
         else:
-            if verbose > 1:
-                print("{}you {} can NOT unreserve terminal {} be cause it was reserved by {}".format(identifier, progress_obj, terminal_obj, po))
+            log.debug("%syou %s can NOT unreserve terminal %s be cause it was reserved by %s", identifier, progress_obj, terminal_obj, po)
 
 
 myQueue = mp.Queue
