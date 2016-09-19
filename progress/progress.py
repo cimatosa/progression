@@ -236,6 +236,10 @@ class Loop(object):
                 # if not pause mode -> call func and see what happens
                 try:
                     quit_loop = func(*args)
+                except InterruptedError:
+                    print(ESC_NO_CHAR_ATTR, end='')
+                    sys.stdout.flush()
+                    return
                 except:
                     err, val, trb = sys.exc_info()
                     print(ESC_NO_CHAR_ATTR, end='')
@@ -248,6 +252,8 @@ class Loop(object):
                     return
                 
             time.sleep(interval)
+            print(prefix)
+            log.debug("%srun.value = %s", prefix, shared_mem_run.value)
 
         log.debug("%s_wrapper_func terminates gracefully", prefix)
 
@@ -1182,8 +1188,9 @@ class SIG_handler_Loop(object):
         pass
 
     def _stop_on_signal(self, signal, frame):
-        log.info("%sreceived sig %s -> set run false", self.prefix, signal_dict[signal])
-        self.shared_mem_run.value = False
+        #log.info("%sreceived sig %s -> set run false", self.prefix, signal_dict[signal])
+        #self.shared_mem_run.value = False
+        raise InterruptedError()
 
 def ESC_MOVE_LINE_UP(n):
     return "\033[{}A".format(n)
