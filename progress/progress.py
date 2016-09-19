@@ -1226,6 +1226,7 @@ def check_process_termination(proc, prefix, timeout, log, auto_kill_on_last_reso
 
     answer = 'k' if auto_kill_on_last_resort else '_'
     while True:
+        log.debug("%sanswer string is %s", prefix, answer)
         if answer == 'k':
             log.warning("%ssend SIGKILL to process with pid %s", prefix, proc.pid)
             os.kill(proc.pid, signal.SIGKILL)

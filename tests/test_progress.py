@@ -789,14 +789,14 @@ def test_stop_progress_with_large_interval():
             
 if __name__ == "__main__":
     func = [    
-    test_prefix_logger,
+    # test_prefix_logger,
     # test_loop_basic,
     # test_loop_signals,
     # test_loop_normal_stop,
     # test_loop_need_sigterm_to_stop,
-    # test_loop_need_sigkill_to_stop,
+    test_loop_need_sigkill_to_stop,
     # test_why_with_statement,
-    test_progress_bar,
+    # test_progress_bar,
     # test_progress_bar_with_statement,
     # test_progress_bar_multi,
     # test_status_counter,
