@@ -15,3 +15,5 @@ install:
 - pip freeze
 script:
 - py.test -v tests/
+after_success:
+- bash <(curl -s https://codecov.io/bash)
