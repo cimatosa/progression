@@ -9,7 +9,7 @@ before_install:
 - python --version
 
 install:
-- pip instal pytest
+- pip install pytest
 - pip freeze
 script:
 - py.test -v tests/
