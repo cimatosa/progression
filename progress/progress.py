@@ -1188,7 +1188,7 @@ class SIG_handler_Loop(object):
         pass
 
     def _stop_on_signal(self, signal, frame):
-        #log.info("%sreceived sig %s -> set run false", self.prefix, signal_dict[signal])
+        log.info("%sreceived sig %s -> raise InterruptedError", self.prefix, signal_dict[signal])
         #self.shared_mem_run.value = False
         raise InterruptedError()
 
