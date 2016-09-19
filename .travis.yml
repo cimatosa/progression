@@ -1,0 +1,15 @@
+language: python
+notifications:
+  email: false
+python:
+- '3.4'
+
+before_install:
+- which python
+- python --version
+
+install:
+- pip instal pytest
+- pip freeze
+script:
+- py.test -v tests/
