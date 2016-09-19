@@ -170,6 +170,7 @@ class Loop(object):
         self._sigterm = sigterm
         
         self._auto_kill_on_last_resort = auto_kill_on_last_resort
+        log.debug("%sauto_kill_on_last_resort = %s", self._prefix, self._auto_kill_on_last_resort)
 
     def __enter__(self):
         return self
