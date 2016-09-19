@@ -1224,6 +1224,7 @@ def check_process_termination(proc, prefix, timeout, log, auto_kill_on_last_reso
     
     log.warning("%stermination of process (pid %s) via SIGTERM with timeout of %ss FAILED!", prefix, proc.pid, new_timeout)
 
+    log.debug("%sauto_kill_on_last_resort is %s", prefix, auto_kill_on_last_resort)
     answer = 'k' if auto_kill_on_last_resort else '_'
     while True:
         log.debug("%sanswer string is %s", prefix, answer)
