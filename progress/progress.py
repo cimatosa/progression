@@ -1,9 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import division, print_function
+import warnings
 
 import copy
 import datetime
+from distutils import version
+import logging
+try:
+    from logging.handlers import QueueHandler
+    from logging.handlers import QueueListener
+except ImportError:
+    warnings.warn("could not load QueueHandler/QueueListener (python version too old\n"+
+                  "no coheerent subprocess logging pissible")
 import math
 import multiprocessing as mp
 from multiprocessing.sharedctypes import Synchronized
@@ -13,10 +22,6 @@ import sys
 import time
 import traceback
 import os
-import warnings
-import logging
-from logging.handlers import QueueHandler
-from logging.handlers import QueueListener
 
 class MultiLineFormatter(logging.Formatter):
     def format(self, record):
@@ -213,10 +218,12 @@ class Loop(object):
             to be executed as a separate process (that's why this functions is declared static)
         """
         prefix = get_identifier(name)+' '
-        log = logging.getLogger("log_{}".format(get_identifier(name)))
+        log = logging.getLogger("log_{}".format(get_identifier(name, bold=False)))
         log.setLevel(logging_level)
-        log.addHandler(QueueHandler(log_queue))
-        
+        try:
+            log.addHandler(QueueHandler(log_queue))
+        except NameError:
+            log.addHandler(def_handl)
 
         SIG_handler_Loop(shared_mem_run, sigint, sigterm, log, prefix)
 
@@ -253,8 +260,14 @@ class Loop(object):
             return
             
         self.run = True
-        log_queue = mp.Queue()
-        QueueListener(log_queue, def_handl)
+
+        try:
+            log_queue = mp.Queue()
+            QueueListener(log_queue, def_handl)
+        except NameError:
+            log.error("%sQueueListener not available in this python version (need at least 3.2)\n"
+                      "this may resault in incoheerent logging", self._prefix)
+            log_queue = None
         self._proc = mp.Process(target = Loop._wrapper_func, 
                                 args = (self.func, self.args, self._run, self._pause, self.interval, 
                                         log_queue, self._sigint, self._sigterm, self._name, log.level),
