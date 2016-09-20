@@ -13,7 +13,7 @@ before_install:
 - python --version
 
 install:
-- pip install pytest
+- pip install pytest pytest-cov
 - pip install python-coveralls
 - pip freeze
 
