@@ -1,6 +1,8 @@
 language: python
+
 notifications:
   email: false
+
 python:
 - '2.7'
 - '3.4'
@@ -12,8 +14,11 @@ before_install:
 
 install:
 - pip install pytest
+- pip install python-coveralls
 - pip freeze
+
 script:
-- py.test -v tests/
+- py.test tessts/ -v --cov=progress --cov-report term-missing
+
 after_success:
-- bash <(curl -s https://codecov.io/bash)
+- coveralls
