@@ -220,40 +220,42 @@ class Loop(object):
         """
         prefix = get_identifier(name)+' '
         log = logging.getLogger("log_{}".format(get_identifier(name, bold=False)))
-        log.setLevel(logging_level)
+        log.setLevel(logging.DEBUG)
         try:
             log.addHandler(QueueHandler(log_queue))
         except NameError:
             log.addHandler(def_handl)
+                  
+        log.warning("%senter wrapper_func", prefix)            
 
         SIG_handler_Loop(shared_mem_run, sigint, sigterm, log, prefix)
 
         while shared_mem_run.value:
-            # in pause mode, simply sleep 
-            if shared_mem_pause.value:
-                quit_loop = False
-            else:
-                # if not pause mode -> call func and see what happens
-                try:
-                    quit_loop = func(*args)
-                except InterruptedError:
-                    print(ESC_NO_CHAR_ATTR, end='')
-                    sys.stdout.flush()
-                    return
-                except:
-                    err, val, trb = sys.exc_info()
-                    print(ESC_NO_CHAR_ATTR, end='')
-                    sys.stdout.flush()
-                    log.error("%serror %s occurred in loop alling 'func(*args)'", prefix, err)
-                    log.debug("show traceback.print_exc()\n%s", traceback.print_exc())
-                    return
-
-                if quit_loop is True:
-                    return
-                
-            time.sleep(interval)
-            print(prefix)
-            log.debug("%srun.value = %s", prefix, shared_mem_run.value)
+            try:
+                # in pause mode, simply sleep 
+                if shared_mem_pause.value:
+                    quit_loop = False
+                else:
+                    # if not pause mode -> call func and see what happens
+                    try:
+                        quit_loop = func(*args)
+                    except:
+                        err, val, trb = sys.exc_info()
+                        print(ESC_NO_CHAR_ATTR, end='')
+                        sys.stdout.flush()
+                        log.error("%serror %s occurred in loop alling 'func(*args)'", prefix, err)
+                        log.debug("show traceback.print_exc()\n%s", traceback.print_exc())
+                        break
+    
+                    if quit_loop is True:
+                        break
+                    
+                time.sleep(interval)
+            except InterruptedError:
+                print(ESC_NO_CHAR_ATTR, end='')
+                sys.stdout.flush()
+                log.debug("%squit wrapper_func due to InterruptedError", prefix)
+                break
 
         log.debug("%s_wrapper_func terminates gracefully", prefix)
 
@@ -269,8 +271,9 @@ class Loop(object):
         self.run = True
 
         try:
-            log_queue = mp.Queue()
-            QueueListener(log_queue, def_handl)
+            log_queue = mp.Queue(-1)
+            listener = QueueListener(log_queue, def_handl)
+            listener.start()
         except NameError:
             log.error("%sQueueListener not available in this python version (need at least 3.2)\n"
                       "this may resault in incoheerent logging", self._prefix)
@@ -1174,7 +1177,8 @@ class SIG_handler_Loop(object):
         self.set_signal(signal.SIGINT, sigint)
         self.set_signal(signal.SIGTERM, sigterm)
         self.prefix = prefix
-        log.info("%ssetup signal handler for loop (SIGINT:%s, SIGTERM:%s)", self.prefix, sigint, sigterm)
+        self.log = log
+        self.log.info("%ssetup signal handler for loop (SIGINT:%s, SIGTERM:%s)", self.prefix, sigint, sigterm)
 
     def set_signal(self, sig, handler_str):
         if handler_str == 'ign':
@@ -1188,7 +1192,7 @@ class SIG_handler_Loop(object):
         pass
 
     def _stop_on_signal(self, signal, frame):
-        log.info("%sreceived sig %s -> raise InterruptedError", self.prefix, signal_dict[signal])
+        self.log.info("%sreceived sig %s -> raise InterruptedError", self.prefix, signal_dict[signal])
         #self.shared_mem_run.value = False
         raise InterruptedError()
 
