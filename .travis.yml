@@ -18,7 +18,7 @@ install:
 - pip freeze
 
 script:
-- py.test tessts/ -v --cov=progress --cov-report term-missing
+- py.test tests/ -v --cov=progress --cov-report term-missing
 
 after_success:
 - coveralls
