@@ -2,21 +2,16 @@
 # -*- coding: utf-8 -*-
 from __future__ import division, print_function
 
+import logging
 import multiprocessing as mp
 import numpy as np
 import os
-import warnings
-
-try:
-    import psutil
-except ImportError:
-    warnings.warn("can not import 'psutil' -> some tests will not work")
-    
+import psutil
 import signal
 import sys
 import time
 import traceback
-import logging
+
 
 from os.path import abspath, dirname, split
 
@@ -31,6 +26,8 @@ def _safe_assert_not_loop_is_alive(loop):
     except AssertionError:
         os.kill(loop.getpid(), signal.SIGKILL)
         raise
+
+INTERVAL = 0.2
     
 def test_prefix_logger():
     pl = logging.getLogger('new log')
@@ -54,16 +51,15 @@ def test_loop_basic():
     check if it is NOT alive after calling stop()
     """
     f = lambda: print("        I'm process {}".format(os.getpid()))
-    loop = progress.Loop(func=f, interval=0.8, verbose=2)
+    loop = progress.Loop(func=f, interval=INTERVAL, verbose=2)
     loop.start()
     
-    time.sleep(1)
+    time.sleep(1.5*INTERVAL)
 
     assert loop.is_alive()
     print("[+] loop started")
     
-    time.sleep(1)
-    
+    time.sleep(1.5*INTERVAL)
     loop.stop()
     
     _safe_assert_not_loop_is_alive(loop)  
@@ -71,35 +67,35 @@ def test_loop_basic():
 
 def test_loop_signals():
     f = lambda: print("        I'm process {}".format(os.getpid()))
-    loop = progress.Loop(func=f, interval=0.8, verbose=2, sigint='stop', sigterm='stop')
+    loop = progress.Loop(func=f, interval=INTERVAL, verbose=2, sigint='stop', sigterm='stop')
     
     print("## stop on SIGINT ##")
     loop.start()
-    time.sleep(1)
+    time.sleep(1.5 * INTERVAL)
     loop.is_alive()
     
     pid = loop.getpid()
     print("    send SIGINT")
     os.kill(pid, signal.SIGINT)
-    time.sleep(1)
+    time.sleep(1.5 * INTERVAL)
     _safe_assert_not_loop_is_alive(loop)
     print("[+] loop stopped running")
 
     print("## stop on SIGTERM ##")    
     loop.start()
-    time.sleep(1)
+    time.sleep(1.5 * INTERVAL)
     pid = loop.getpid()
     print("    send SIGTERM")
     os.kill(pid, signal.SIGTERM)
-    time.sleep(1)
+    time.sleep(1.5 * INTERVAL)
     _safe_assert_not_loop_is_alive(loop)
     print("[+] loop stopped running")
     
     print("## ignore SIGINT ##")
-    loop = progress.Loop(func=f, interval=0.8, verbose=0, sigint='ign', sigterm='ign')
+    loop = progress.Loop(func=f, interval=INTERVAL, verbose=0, sigint='ign', sigterm='ign')
 
     loop.start()
-    time.sleep(1)
+    time.sleep(time.sleep(1.5*INTERVAL))
     pid = loop.getpid()
     os.kill(pid, signal.SIGINT)
     print("    send SIGINT")
@@ -108,22 +104,22 @@ def test_loop_signals():
     print("[+] loop still running")
     print("    send SIGKILL")
     os.kill(pid, signal.SIGKILL)
-    time.sleep(1)
+    time.sleep(time.sleep(1.5*INTERVAL))
     assert not loop.is_alive()
     print("[+] loop stopped running")
     
     print("## ignore SIGTERM ##")
     loop.start()
-    time.sleep(1)
+    time.sleep(time.sleep(1.5*INTERVAL))
     pid = loop.getpid()
     print("    send SIGTERM")
     os.kill(pid, signal.SIGTERM)
-    time.sleep(1)
+    time.sleep(time.sleep(1.5*INTERVAL))
     assert loop.is_alive()
     print("[+] loop still running")
     print("    send SIGKILL")    
     os.kill(pid, signal.SIGKILL)
-    time.sleep(1)
+    time.sleep(time.sleep(1.5*INTERVAL))
     assert not loop.is_alive()
     print("[+] loop stopped running")
 
@@ -132,10 +128,9 @@ def non_stopping_function():
     print("        I'm pid", os.getpid())
     print("        I'm NOT going to stop")
     
-    while True:         # sleep will be interrupted by signal
-        time.sleep(1)   # while True just calls sleep again
-                        # only SIGKILL helps
-                        
+    while True:          # sleep will be interrupted by signal
+        time.sleep(0.1)  # while True just calls sleep again
+                         # only SIGKILL helps
 
 def normal_function():
     print("        I'm pid", os.getpid())
@@ -146,11 +141,12 @@ def long_sleep_function():
     time.sleep(60*60*12*356*7)
     
 def test_loop_normal_stop():
-    with progress.Loop(func    = normal_function, 
-                       verbose = 2,
-                       name    = 'loop') as loop:
+    with progress.Loop(func     = normal_function,
+                       verbose  = 2,
+                       name     = 'loop',
+                       interval = INTERVAL) as loop:
         loop.start()
-        time.sleep(0.1)
+        time.sleep(1.5*INTERVAL)
         assert loop.is_alive()
         print("[+] normal loop running")
     
@@ -160,9 +156,10 @@ def test_loop_normal_stop():
 def test_loop_need_sigterm_to_stop():
     with progress.Loop(func    = long_sleep_function, 
                        verbose = 2,
-                       name    = 'loop') as loop:
+                       name    = 'loop',
+                       interval = INTERVAL) as loop:
         loop.start()
-        time.sleep(0.1)
+        time.sleep(1.5*INTERVAL)
         assert loop.is_alive()
         print("[+] sleepy loop running")
         
@@ -173,9 +170,10 @@ def test_loop_need_sigkill_to_stop():
     with progress.Loop(func                     = non_stopping_function, 
                        verbose                  = 2,
                        name                     = 'loop',
+                       interval                 = INTERVAL,
                        auto_kill_on_last_resort = True) as loop:
         loop.start()
-        time.sleep(0.1)
+        time.sleep(1.5*INTERVAL)
         assert loop.is_alive()
         print("[+] NON stopping loop running")
 
@@ -192,17 +190,17 @@ def test_why_with_statement():
     v=2
     
     def t(shared_mem_pid):
-        l = ErrorLoop(func=normal_function, verbose=v)
+        l = ErrorLoop(func=normal_function, verbose=v, interval=INTERVAL)
         l.start()
-        time.sleep(0.2)
+        time.sleep(1.5*INTERVAL)
         shared_mem_pid.value = l.getpid()
         l.raise_error()
         l.stop()
         
     def t_with(shared_mem_pid):
-        with ErrorLoop(func=normal_function, verbose=v) as l:
+        with ErrorLoop(func=normal_function, verbose=v, interval=INTERVAL) as l:
             l.start()
-            time.sleep(0.2)
+            time.sleep(1.5*INTERVAL)
             shared_mem_pid.value = l.getpid()
             l.raise_error()
             l.stop()

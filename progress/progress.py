@@ -107,14 +107,14 @@ class Loop(object):
     """
     def __init__(self, 
                  func, 
-                 args=(), 
-                 interval = 1, 
-                 verbose=0, 
-                 sigint='stop', 
-                 sigterm='stop',
-                 name=None,
-                 auto_kill_on_last_resort=False,
-                 logging_level=None):
+                 args                     = (),
+                 interval                 = 1,
+                 verbose                  = 0,
+                 sigint                   = 'stop',
+                 sigterm                  = 'stop',
+                 name                     = None,
+                 auto_kill_on_last_resort = False,
+                 logging_level            = None):
         """
         func [callable] - function to be called periodically
         
