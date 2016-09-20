@@ -27,7 +27,7 @@ def _safe_assert_not_loop_is_alive(loop):
         os.kill(loop.getpid(), signal.SIGKILL)
         raise
 
-INTERVAL = 1
+INTERVAL = 0.2
     
 def test_prefix_logger():
     pl = logging.getLogger('new log')
@@ -42,6 +42,10 @@ def test_prefix_logger():
     pl.error("this is an error log")
     pl.critical("this is an critical log")
     
+    pl.debug("multiline\nline2\nline3")
+    
+    
+    
 
 def test_loop_basic():
     """
@@ -51,78 +55,85 @@ def test_loop_basic():
     check if it is NOT alive after calling stop()
     """
     f = lambda: print("        I'm process {}".format(os.getpid()))
-    loop = progress.Loop(func=f, interval=INTERVAL, verbose=2)
-    loop.start()
+    try:
+        loop = progress.Loop(func=f, interval=INTERVAL, verbose=2)
+        loop.start()
+        
+        time.sleep(0.5*INTERVAL)
     
-    time.sleep(0.5*INTERVAL)
-
-    assert loop.is_alive()
-    print("[+] loop started")
-    
-    time.sleep(1.5*INTERVAL)
-    loop.stop()
-    
-    _safe_assert_not_loop_is_alive(loop)  
-    print("[+] loop stopped")
+        assert loop.is_alive()
+        print("[+] loop started")
+        
+        time.sleep(1.5*INTERVAL)
+        loop.stop()
+        
+        _safe_assert_not_loop_is_alive(loop)  
+        print("[+] loop stopped")
+    finally:
+        if loop.getpid() is not None:
+            os.kill(loop.getpid(), signal.SIGKILL)
 
 def test_loop_signals():
     f = lambda: print("        I'm process {}".format(os.getpid()))
-    loop = progress.Loop(func=f, interval=INTERVAL, verbose=2, sigint='stop', sigterm='stop')
+    try:
+        loop = progress.Loop(func=f, interval=INTERVAL, verbose=2, sigint='stop', sigterm='stop')
+        
+        print("## stop on SIGINT ##")
+        loop.start()
+        time.sleep(0.5 * INTERVAL)
+        loop.is_alive()
+        
+        pid = loop.getpid()
+        print("    send SIGINT")
+        os.kill(pid, signal.SIGINT)
+        time.sleep(1.5 * INTERVAL)
+        _safe_assert_not_loop_is_alive(loop)
+        print("[+] loop stopped running")
     
-    print("## stop on SIGINT ##")
-    loop.start()
-    time.sleep(0.5 * INTERVAL)
-    loop.is_alive()
+        print("## stop on SIGTERM ##")    
+        loop.start()
+        time.sleep(0.5 * INTERVAL)
+        pid = loop.getpid()
+        print("    send SIGTERM")
+        os.kill(pid, signal.SIGTERM)
+        time.sleep(1.5 * INTERVAL)
+        _safe_assert_not_loop_is_alive(loop)
+        print("[+] loop stopped running")
+        
+        print("## ignore SIGINT ##")
+        loop = progress.Loop(func=f, interval=INTERVAL, verbose=0, sigint='ign', sigterm='ign')
     
-    pid = loop.getpid()
-    print("    send SIGINT")
-    os.kill(pid, signal.SIGINT)
-    time.sleep(1.5 * INTERVAL)
-    _safe_assert_not_loop_is_alive(loop)
-    print("[+] loop stopped running")
-
-    print("## stop on SIGTERM ##")    
-    loop.start()
-    time.sleep(0.5 * INTERVAL)
-    pid = loop.getpid()
-    print("    send SIGTERM")
-    os.kill(pid, signal.SIGTERM)
-    time.sleep(1.5 * INTERVAL)
-    _safe_assert_not_loop_is_alive(loop)
-    print("[+] loop stopped running")
-    
-    print("## ignore SIGINT ##")
-    loop = progress.Loop(func=f, interval=INTERVAL, verbose=0, sigint='ign', sigterm='ign')
-
-    loop.start()
-    time.sleep(0.5*INTERVAL)
-    pid = loop.getpid()
-    os.kill(pid, signal.SIGINT)
-    print("    send SIGINT")
-    time.sleep(1.5*INTERVAL)
-    assert loop.is_alive()
-    print("[+] loop still running")
-    print("    send SIGKILL")
-    os.kill(pid, signal.SIGKILL)
-    time.sleep(time.sleep(1.5*INTERVAL))
-    assert not loop.is_alive()
-    print("[+] loop stopped running")
-    
-    print("## ignore SIGTERM ##")
-    loop.start()
-    time.sleep(time.sleep(0.5*INTERVAL))
-    pid = loop.getpid()
-    print("    send SIGTERM")
-    os.kill(pid, signal.SIGTERM)
-    time.sleep(time.sleep(1.5*INTERVAL))
-    assert loop.is_alive()
-    print("[+] loop still running")
-    print("    send SIGKILL")    
-    os.kill(pid, signal.SIGKILL)
-    time.sleep(time.sleep(1.5*INTERVAL))
-    assert not loop.is_alive()
-    print("[+] loop stopped running")
-
+        loop.start()
+        time.sleep(0.5*INTERVAL)
+        pid = loop.getpid()
+        os.kill(pid, signal.SIGINT)
+        print("    send SIGINT")
+        time.sleep(1.5*INTERVAL)
+        assert loop.is_alive()
+        print("[+] loop still running")
+        print("    send SIGKILL")
+        os.kill(pid, signal.SIGKILL)
+        time.sleep(1.5*INTERVAL)
+        assert not loop.is_alive()
+        print("[+] loop stopped running")
+        
+        print("## ignore SIGTERM ##")
+        loop.start()
+        time.sleep(0.5*INTERVAL)
+        pid = loop.getpid()
+        print("    send SIGTERM")
+        os.kill(pid, signal.SIGTERM)
+        time.sleep(1.5*INTERVAL)
+        assert loop.is_alive()
+        print("[+] loop still running")
+        print("    send SIGKILL")    
+        os.kill(pid, signal.SIGKILL)
+        time.sleep(1.5*INTERVAL)
+        assert not loop.is_alive()
+        print("[+] loop stopped running")
+    finally:
+        if loop.getpid() is not None:
+            os.kill(loop.getpid(), signal.SIGKILL)
 
 def non_stopping_function():
     print("        I'm pid", os.getpid())
@@ -141,44 +152,53 @@ def long_sleep_function():
     time.sleep(60*60*12*356*7)
     
 def test_loop_normal_stop():
-    with progress.Loop(func     = normal_function,
-                       verbose  = 2,
-                       name     = 'loop',
-                       interval = INTERVAL) as loop:
-        loop.start()
-        time.sleep(0.5*INTERVAL)
-        assert loop.is_alive()
-        print("[+] normal loop running")
-    
-    _safe_assert_not_loop_is_alive(loop)
-    print("[+] normal loop stopped")
+    try:
+        with progress.Loop(func     = normal_function,
+                           verbose  = 2,
+                           interval = INTERVAL) as loop:
+            loop.start()
+            time.sleep(0.5*INTERVAL)
+            assert loop.is_alive()
+            print("[+] normal loop running")
+        
+        _safe_assert_not_loop_is_alive(loop)
+        print("[+] normal loop stopped")
+    finally:
+        if loop.getpid() is not None:
+            os.kill(loop.getpid(), signal.SIGKILL)        
     
 def test_loop_need_sigterm_to_stop():
-    with progress.Loop(func    = long_sleep_function, 
-                       verbose = 2,
-                       name    = 'loop',
-                       interval = INTERVAL) as loop:
-        loop.start()
-        time.sleep(0.5*INTERVAL)
-        assert loop.is_alive()
-        print("[+] sleepy loop running")
-        
-    _safe_assert_not_loop_is_alive(loop)
-    print("[+] sleepy loop stopped")
+    try:
+        with progress.Loop(func    = long_sleep_function, 
+                           verbose = 2,
+                           interval = INTERVAL) as loop:
+            loop.start()
+            time.sleep(0.5*INTERVAL)
+            assert loop.is_alive()
+            print("[+] sleepy loop running")
+            
+        _safe_assert_not_loop_is_alive(loop)
+        print("[+] sleepy loop stopped")
+    finally:
+        if loop.getpid() is not None:
+            os.kill(loop.getpid(), signal.SIGKILL)        
     
 def test_loop_need_sigkill_to_stop():
-    with progress.Loop(func                     = non_stopping_function, 
-                       verbose                  = 2,
-                       name                     = 'loop',
-                       interval                 = INTERVAL,
-                       auto_kill_on_last_resort = True) as loop:
-        loop.start()
-        time.sleep(0.5*INTERVAL)
-        assert loop.is_alive()
-        print("[+] NON stopping loop running")
-
-    _safe_assert_not_loop_is_alive(loop)
-    print("[+] NON stopping loop stopped")
+    try:
+        with progress.Loop(func                     = non_stopping_function, 
+                           verbose                  = 2,
+                           interval                 = INTERVAL,
+                           auto_kill_on_last_resort = True) as loop:
+            loop.start()
+            time.sleep(0.5*INTERVAL)
+            assert loop.is_alive()
+            print("[+] NON stopping loop running")
+    
+        _safe_assert_not_loop_is_alive(loop)
+        print("[+] NON stopping loop stopped")
+    finally:
+        if loop.getpid() is not None:
+            os.kill(loop.getpid(), signal.SIGKILL)        
         
 def test_why_with_statement():
     """
@@ -190,20 +210,28 @@ def test_why_with_statement():
     v=2
     
     def t(shared_mem_pid):
-        l = ErrorLoop(func=normal_function, verbose=v, interval=INTERVAL)
-        l.start()
-        time.sleep(1.5*INTERVAL)
-        shared_mem_pid.value = l.getpid()
-        l.raise_error()
-        l.stop()
-        
-    def t_with(shared_mem_pid):
-        with ErrorLoop(func=normal_function, verbose=v, interval=INTERVAL) as l:
+        try:
+            l = ErrorLoop(func=normal_function, verbose=v, interval=INTERVAL)
             l.start()
             time.sleep(1.5*INTERVAL)
             shared_mem_pid.value = l.getpid()
             l.raise_error()
             l.stop()
+        finally:
+            if l.getpid() is not None:
+                os.kill(l.getpid(), signal.SIGKILL)            
+        
+    def t_with(shared_mem_pid):
+        with ErrorLoop(func=normal_function, verbose=v, interval=INTERVAL) as l:
+            try:
+                l.start()
+                time.sleep(1.5*INTERVAL)
+                shared_mem_pid.value = l.getpid()
+                l.raise_error()
+                l.stop()
+            finally:
+                if l.getpid() is not None:
+                    os.kill(l.getpid(), signal.SIGKILL)                
         
     print("## start without with statement ...")
     
@@ -268,48 +296,56 @@ def test_progress_bar():
     """
     count = progress.UnsignedIntValue()
     max_count = progress.UnsignedIntValue(100)
-    sb = progress.ProgressBar(count, max_count, verbose=2, interval = INTERVAL)
-    assert not sb.is_alive()
-    
-    sb.start()
-    time.sleep(1.5*INTERVAL)
-    assert sb.is_alive()
-    pid = sb.getpid()
-    
-    # call start on already running PB
-    sb.start()
-    time.sleep(INTERVAL)
-    assert pid == sb.getpid()
-    
-    sb.stop()
-    _safe_assert_not_loop_is_alive(sb)
-    
-    time.sleep(2*INTERVAL)
-    # call stop on not running PB
-    sb.stop()
-    time.sleep(2*INTERVAL)
-    
-def test_progress_bar_with_statement():
-    print("TERMINAL_RESERVATION", progress.TERMINAL_RESERVATION)
-    count = progress.UnsignedIntValue()
-    max_count = progress.UnsignedIntValue(100)
-    with progress.ProgressBar(count, max_count, verbose=2, interval = INTERVAL) as sb:
+    try:
+        sb = progress.ProgressBar(count, max_count, verbose=2, interval = INTERVAL)
         assert not sb.is_alive()
-    
+        
         sb.start()
-        time.sleep(0.5*INTERVAL)
+        time.sleep(1.5*INTERVAL)
         assert sb.is_alive()
         pid = sb.getpid()
         
         # call start on already running PB
         sb.start()
-        time.sleep(0.5*INTERVAL)
+        time.sleep(INTERVAL)
         assert pid == sb.getpid()
+        
+        sb.stop()
+        _safe_assert_not_loop_is_alive(sb)
+        
+        time.sleep(2*INTERVAL)
+        # call stop on not running PB
+        sb.stop()
+        time.sleep(2*INTERVAL)
+    finally:
+        if sb.getpid() is not None:
+            os.kill(sb.getpid(), signal.SIGKILL)        
     
-    _safe_assert_not_loop_is_alive(sb)
-    
-    time.sleep(0.5*INTERVAL)
-    sb.stop()
+def test_progress_bar_with_statement():
+    print("TERMINAL_RESERVATION", progress.TERMINAL_RESERVATION)
+    count = progress.UnsignedIntValue()
+    max_count = progress.UnsignedIntValue(100)
+    try:
+        with progress.ProgressBar(count, max_count, verbose=2, interval = INTERVAL) as sb:
+            assert not sb.is_alive()
+        
+            sb.start()
+            time.sleep(0.5*INTERVAL)
+            assert sb.is_alive()
+            pid = sb.getpid()
+            
+            # call start on already running PB
+            sb.start()
+            time.sleep(0.5*INTERVAL)
+            assert pid == sb.getpid()
+        
+        _safe_assert_not_loop_is_alive(sb)
+        
+        time.sleep(0.5*INTERVAL)
+        sb.stop()
+    finally:
+        if sb.getpid() is not None:
+            os.kill(sb.getpid(), signal.SIGKILL)           
     
 def test_progress_bar_multi():
     print("TERMINAL_RESERVATION", progress.TERMINAL_RESERVATION)
@@ -323,54 +359,58 @@ def test_progress_bar_multi():
         count.append(progress.UnsignedIntValue(0))
         max_count.append(progress.UnsignedIntValue(max_count_value))
         prepend.append('_{}_: '.format(i))
-    
-    with progress.ProgressBar(count=count,
-                              max_count=max_count,
-                              interval=INTERVAL,
-                              speed_calc_cycles=10,
-                              width='auto',
-                              verbose=2,
-                              sigint='stop',
-                              sigterm='stop',
-                              name='sb multi',
-                              prepend=prepend) as sbm:
-    
-        sbm.start()
+    try:
+        with progress.ProgressBar(count=count,
+                                  max_count=max_count,
+                                  interval=INTERVAL,
+                                  speed_calc_cycles=10,
+                                  width='auto',
+                                  verbose=2,
+                                  sigint='stop',
+                                  sigterm='stop',
+                                  prepend=prepend) as sbm:
         
-        for x in range(500):
-            i = np.random.randint(low=0, high=n)
-            with count[i].get_lock():
-                count[i].value += 1
-                
-            if count[i].value > 100:
-                sbm.reset(i)
-                
-            time.sleep(INTERVAL/50)
+            sbm.start()
+            
+            for x in range(500):
+                i = np.random.randint(low=0, high=n)
+                with count[i].get_lock():
+                    count[i].value += 1
+                    
+                if count[i].value > 100:
+                    sbm.reset(i)
+                    
+                time.sleep(INTERVAL/50)
+    finally:
+        if sbm.getpid() is not None:
+            os.kill(sbm.getpid(), signal.SIGKILL)                   
         
            
 def test_status_counter():
     c = progress.UnsignedIntValue(val=0)
     m = None
+    try:
+        with progress.ProgressBar(count=c,
+                                  max_count=m,
+                                  interval=INTERVAL,
+                                  speed_calc_cycles=100,
+                                  verbose=2,
+                                  sigint='ign',
+                                  sigterm='ign',
+                                  prepend='') as sc:
     
-    with progress.ProgressBar(count=c,
-                              max_count=m,
-                              interval=INTERVAL,
-                              speed_calc_cycles=100,
-                              verbose=2,
-                              sigint='ign',
-                              sigterm='ign',
-                              name='sc',
-                              prepend='') as sc:
-
-        sc.start()
-        while True:
-            with c.get_lock():
-                c.value += 1
+            sc.start()
+            while True:
+                with c.get_lock():
+                    c.value += 1
+                    
+                if c.value == 100:
+                    break
                 
-            if c.value == 100:
-                break
-            
-            time.sleep(INTERVAL/50)
+                time.sleep(INTERVAL/50)
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
             
 def test_status_counter_multi():
     c1 = progress.UnsignedIntValue(val=0)
@@ -378,17 +418,21 @@ def test_status_counter_multi():
     
     c = [c1, c2]
     prepend = ['c1: ', 'c2: ']
-    with progress.ProgressBar(count=c, prepend=prepend, verbose=2, interval=INTERVAL) as sc:
-        sc.start()
-        while True:
-            i = np.random.randint(0,2)
-            with c[i].get_lock():
-                c[i].value += 1
+    try:
+        with progress.ProgressBar(count=c, prepend=prepend, verbose=2, interval=INTERVAL) as sc:
+            sc.start()
+            while True:
+                i = np.random.randint(0,2)
+                with c[i].get_lock():
+                    c[i].value += 1
+                    
+                if c[0].value == 100:
+                    break
                 
-            if c[0].value == 100:
-                break
-            
-            time.sleep(INTERVAL/50)
+                time.sleep(INTERVAL/50)
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
             
 def test_intermediate_prints_while_running_progess_bar():
     c = progress.UnsignedIntValue(val=0)
@@ -411,6 +455,9 @@ def test_intermediate_prints_while_running_progess_bar():
     except:
         print("IN EXCEPTION TEST")
         traceback.print_exc()
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)   
             
             
 def test_intermediate_prints_while_running_progess_bar_multi():
@@ -418,22 +465,26 @@ def test_intermediate_prints_while_running_progess_bar_multi():
     c2 = progress.UnsignedIntValue(val=0)
     
     c = [c1,c2]
-    with progress.ProgressBar(count=c, verbose=2, interval=INTERVAL) as sc:
-        sc.start()
-        while True:
-            i = np.random.randint(0,2)
-            with c[i].get_lock():
-                c[i].value += 1
+    try:
+        with progress.ProgressBar(count=c, verbose=2, interval=INTERVAL) as sc:
+            sc.start()
+            while True:
+                i = np.random.randint(0,2)
+                with c[i].get_lock():
+                    c[i].value += 1
+                    
+                if c[0].value == 25:
+                    sc.stop()
+                    print("intermediate message")
+                    sc.start()
+                    
+                if c[0].value == 100:
+                    break
                 
-            if c[0].value == 25:
-                sc.stop()
-                print("intermediate message")
-                sc.start()
-                
-            if c[0].value == 100:
-                break
-            
-            time.sleep(INTERVAL/50)
+                time.sleep(INTERVAL/50)
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
     
 def test_progress_bar_counter():
     c1 = progress.UnsignedIntValue(val=0)
@@ -450,18 +501,22 @@ def test_progress_bar_counter():
     
     pp = ['a ', 'b ']
     
-    with progress.ProgressBarCounter(count=c, max_count=m, verbose=1, interval=INTERVAL, prepend = pp) as sc:
-        sc.start()
-        while True:
-            i = np.random.randint(0,2)
-            with c[i].get_lock():
-                c[i].value += 1
-                if c[i].value > maxc:
-                    sc.reset(i)
-                           
-            time.sleep(INTERVAL/50)
-            if (time.time() - t0) > 2:
-                break
+    try:
+        with progress.ProgressBarCounter(count=c, max_count=m, verbose=1, interval=INTERVAL, prepend = pp) as sc:
+            sc.start()
+            while True:
+                i = np.random.randint(0,2)
+                with c[i].get_lock():
+                    c[i].value += 1
+                    if c[i].value > maxc:
+                        sc.reset(i)
+                               
+                time.sleep(INTERVAL/50)
+                if (time.time() - t0) > 2:
+                    break
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
 
 def test_progress_bar_counter_non_max():
     c1 = progress.UnsignedIntValue(val=0)
@@ -471,18 +526,22 @@ def test_progress_bar_counter_non_max():
     maxc = 10
     t0 = time.time()
     
-    with progress.ProgressBarCounter(count=c, verbose=1, interval=INTERVAL) as sc:
-        sc.start()
-        while True:
-            i = np.random.randint(0,2)
-            with c[i].get_lock():
-                c[i].value += 1
-                if c[i].value > maxc:
-                    sc.reset(i)
-                           
-            time.sleep(INTERVAL/50)
-            if (time.time() - t0) > 2:
-                break
+    try:
+        with progress.ProgressBarCounter(count=c, verbose=1, interval=INTERVAL) as sc:
+            sc.start()
+            while True:
+                i = np.random.randint(0,2)
+                with c[i].get_lock():
+                    c[i].value += 1
+                    if c[i].value > maxc:
+                        sc.reset(i)
+                               
+                time.sleep(INTERVAL/50)
+                if (time.time() - t0) > 2:
+                    break
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
             
 def test_progress_bar_counter_hide_bar():
     c1 = progress.UnsignedIntValue(val=0)
@@ -495,79 +554,112 @@ def test_progress_bar_counter_hide_bar():
     maxc = 10
     t0 = time.time()
     
-    with progress.ProgressBarCounter(count=c, max_count=m, verbose=1, interval=INTERVAL) as sc:
-        sc.start()
-        while True:
-            i = np.random.randint(0,2)
-            with c[i].get_lock():
-                c[i].value += 1
-                if c[i].value > maxc:
-                    sc.reset(i)
-                           
-            time.sleep(INTERVAL/50)
-            if (time.time() - t0) > 2:
-                break       
+    try:
+        with progress.ProgressBarCounter(count=c, max_count=m, verbose=1, interval=INTERVAL) as sc:
+            sc.start()
+            while True:
+                i = np.random.randint(0,2)
+                with c[i].get_lock():
+                    c[i].value += 1
+                    if c[i].value > maxc:
+                        sc.reset(i)
+                               
+                time.sleep(INTERVAL/50)
+                if (time.time() - t0) > 2:
+                    break       
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
             
-def test_progress_bar_slow_change():
-    raise NotImplementedError
-    
-    max_count_value = 100
+def test_progress_bar_slow_change():   
+    max_count_value = 5
     
     count = progress.UnsignedIntValue(0)
     max_count = progress.UnsignedIntValue(max_count_value)
     
-    with progress.ProgressBar(count=count,
-                              max_count=max_count,
-                              interval=0.1,
-                              speed_calc_cycles=5) as sbm:
-    
-        sbm.start()
+    try:
+        with progress.ProgressBar(count=count,
+                                  max_count=max_count,
+                                  interval=0.7,
+                                  speed_calc_cycles=5) as sbm:
         
-        for i in range(max_count_value):               
-            time.sleep(1)     
-            count.value = i
+            sbm.start()
+            for i in range(1, max_count_value+1):
+                time.sleep(3)
+                count.value = i
+                                
+    finally:
+        if sbm.getpid() is not None:
+            os.kill(sbm.getpid(), signal.SIGKILL)
+
+    try:
+        count.value = 0
+        with progress.ProgressBarFancy(count=count,
+                                  max_count=max_count,
+                                  interval=0.7,
+                                  speed_calc_cycles=15) as sbm:
+        
+            sbm.start()
+            for i in range(1, max_count_value):
+                time.sleep(3)
+                count.value = i
+                                
+    finally:
+        if sbm.getpid() is not None:
+            os.kill(sbm.getpid(), signal.SIGKILL)       
             
 def test_progress_bar_start_stop():
     max_count_value = 20
     
     count = progress.UnsignedIntValue(0)
     max_count = progress.UnsignedIntValue(max_count_value)
-    
-    with progress.ProgressBar(count=count,
-                              max_count=max_count,
-                              interval=INTERVAL,
-                              speed_calc_cycles=5,
-                              verbose=1) as sbm:
-    
-        sbm.start()
+    try:
+        with progress.ProgressBar(count=count,
+                                  max_count=max_count,
+                                  interval=INTERVAL,
+                                  speed_calc_cycles=5,
+                                  verbose=1) as sbm:
         
-        for i in range(max_count_value):
-            time.sleep(INTERVAL/10)
-            count.value = i+1
-            if i == 10:
-                sbm.stop(make_sure_its_down = True)
-                print("this will not overwrite the progressbar, because we stopped it explicitly")
-                sbm.start()
-        print("this WILL overwrite the progressbar, because we are still inside it's context (still running)")            
+            sbm.start()
+            
+            for i in range(max_count_value):
+                time.sleep(INTERVAL/10)
+                count.value = i+1
+                if i == 10:
+                    sbm.stop(make_sure_its_down = True)
+                    print("this will not overwrite the progressbar, because we stopped it explicitly")
+                    sbm.start()
+            print("this WILL overwrite the progressbar, because we are still inside it's context (still running)")            
+    finally:
+        if sbm.getpid() is not None:
+            os.kill(sbm.getpid(), signal.SIGKILL)   
 
     print()
     print("create a progress bar, but do not start")
-    with progress.ProgressBar(count=count,
-                              max_count=max_count,
-                              interval=INTERVAL,
-                              speed_calc_cycles=5,
-                              verbose=1) as sbm:
-        pass
+    try:
+        with progress.ProgressBar(count=count,
+                                  max_count=max_count,
+                                  interval=INTERVAL,
+                                  speed_calc_cycles=5,
+                                  verbose=1) as sbm:
+            pass
+    finally:
+        if sbm.getpid() is not None:
+            os.kill(sbm.getpid(), signal.SIGKILL)           
     print("this is after progress.__exit__, there should be no prints from the progress")
             
 def test_progress_bar_fancy():
     count = progress.UnsignedIntValue()
     max_count = progress.UnsignedIntValue(100)
-    with progress.ProgressBarFancy(count, max_count, verbose=1, interval=INTERVAL, width='auto') as sb:
-        sb.start()
-        for i in range(100):
-            count.value = i+1
-            time.sleep(INTERVAL/50)
+    try:
+        with progress.ProgressBarFancy(count, max_count, verbose=1, interval=INTERVAL, width='auto') as sb:
+            sb.start()
+            for i in range(100):
+                count.value = i+1
+                time.sleep(INTERVAL/50)
+    finally:
+        if sb.getpid() is not None:
+            os.kill(sb.getpid(), signal.SIGKILL)                   
  
 def test_progress_bar_multi_fancy():
     n = 4
@@ -580,41 +672,47 @@ def test_progress_bar_multi_fancy():
         count.append(progress.UnsignedIntValue(0))
         max_count.append(progress.UnsignedIntValue(max_count_value))
         prepend.append('_{}_:'.format(i))
-    
-    with progress.ProgressBarFancy(count=count,
-                                   max_count=max_count,
-                                   interval=INTERVAL,
-                                   speed_calc_cycles=10,
-                                   width='auto',
-                                   verbose=2,
-                                   sigint='stop',
-                                   sigterm='stop',
-                                   name='sb multi',
-                                   prepend=prepend) as sbm:
-    
-        sbm.start()
+    try:
+        with progress.ProgressBarFancy(count=count,
+                                       max_count=max_count,
+                                       interval=INTERVAL,
+                                       speed_calc_cycles=10,
+                                       width='auto',
+                                       verbose=2,
+                                       sigint='stop',
+                                       sigterm='stop',
+                                       prepend=prepend) as sbm:
         
-        for x in range(400):
-            i = np.random.randint(low=0, high=n)
-            with count[i].get_lock():
-                count[i].value += 1
-                
-            if count[i].value > 100:
-                sbm.reset(i)
-                
-            time.sleep(INTERVAL/200)
+            sbm.start()
+            
+            for x in range(400):
+                i = np.random.randint(low=0, high=n)
+                with count[i].get_lock():
+                    count[i].value += 1
+                    
+                if count[i].value > 100:
+                    sbm.reset(i)
+                    
+                time.sleep(INTERVAL/200)
+    finally:
+        if sbm.getpid() is not None:
+            os.kill(sbm.getpid(), signal.SIGKILL)                   
             
 def test_progress_bar_fancy_small():
     count = progress.UnsignedIntValue()
     m = 15
     max_count = progress.UnsignedIntValue(m)
     
-    for width in ['auto', 80,70,60,50,40,30,20,10,5]:    
-        with progress.ProgressBarFancy(count, max_count, verbose=1, interval=INTERVAL, width=width) as sb:
-            sb.start()
-            for i in range(m):
-                count.value = i+1
-                time.sleep(INTERVAL/30)            
+    for width in ['auto', 80,70,60,50,40,30,20,10,5]:
+        try:    
+            with progress.ProgressBarFancy(count, max_count, verbose=1, interval=INTERVAL, width=width) as sb:
+                sb.start()
+                for i in range(m):
+                    count.value = i+1
+                    time.sleep(INTERVAL/30)            
+        finally:
+            if sb.getpid() is not None:
+                os.kill(sb.getpid(), signal.SIGKILL)                       
             
 def test_progress_bar_counter_fancy():
     c1 = progress.UnsignedIntValue(val=0)
@@ -630,19 +728,22 @@ def test_progress_bar_counter_fancy():
     t0 = time.time()
     
     pp = ['a ', 'b ']
-    
-    with progress.ProgressBarCounterFancy(count=c, max_count=m, verbose=1, interval=INTERVAL, prepend = pp) as sc:
-        sc.start()
-        while True:
-            i = np.random.randint(0,2)
-            with c[i].get_lock():
-                c[i].value += 1
-                if c[i].value > maxc:
-                    sc.reset(i)
-                           
-            time.sleep(INTERVAL/60)
-            if (time.time() - t0) > 2:
-                break
+    try:
+        with progress.ProgressBarCounterFancy(count=c, max_count=m, verbose=1, interval=INTERVAL, prepend = pp) as sc:
+            sc.start()
+            while True:
+                i = np.random.randint(0,2)
+                with c[i].get_lock():
+                    c[i].value += 1
+                    if c[i].value > maxc:
+                        sc.reset(i)
+                               
+                time.sleep(INTERVAL/60)
+                if (time.time() - t0) > 2:
+                    break
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
 
 def test_progress_bar_counter_fancy_non_max():
     c1 = progress.UnsignedIntValue(val=0)
@@ -651,19 +752,22 @@ def test_progress_bar_counter_fancy_non_max():
     c = [c1, c2]
     maxc = 30
     t0 = time.time()
-    
-    with progress.ProgressBarCounterFancy(count=c, verbose=1, interval=INTERVAL) as sc:
-        sc.start()
-        while True:
-            i = np.random.randint(0,2)
-            with c[i].get_lock():
-                c[i].value += 1
-                if c[i].value > maxc:
-                    sc.reset(i)
-                           
-            time.sleep(INTERVAL/60)
-            if (time.time() - t0) > 2:
-                break
+    try:
+        with progress.ProgressBarCounterFancy(count=c, verbose=1, interval=INTERVAL) as sc:
+            sc.start()
+            while True:
+                i = np.random.randint(0,2)
+                with c[i].get_lock():
+                    c[i].value += 1
+                    if c[i].value > maxc:
+                        sc.reset(i)
+                               
+                time.sleep(INTERVAL/60)
+                if (time.time() - t0) > 2:
+                    break
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
             
 def test_progress_bar_counter_fancy_hide_bar():
     c1 = progress.UnsignedIntValue(val=0)
@@ -676,64 +780,79 @@ def test_progress_bar_counter_fancy_hide_bar():
     maxc = 30
     t0 = time.time()
     
-    with progress.ProgressBarCounterFancy(count=c, max_count=m, verbose=1, interval=INTERVAL) as sc:
-        sc.start()
-        while True:
-            i = np.random.randint(0,2)
-            with c[i].get_lock():
-                c[i].value += 1
-                if c[i].value > maxc:
-                    sc.reset(i)
-                           
-            time.sleep(INTERVAL/60)
-            if (time.time() - t0) > 2:
-                break         
+    try:    
+        with progress.ProgressBarCounterFancy(count=c, max_count=m, verbose=1, interval=INTERVAL) as sc:
+            sc.start()
+            while True:
+                i = np.random.randint(0,2)
+                with c[i].get_lock():
+                    c[i].value += 1
+                    if c[i].value > maxc:
+                        sc.reset(i)
+                               
+                time.sleep(INTERVAL/60)
+                if (time.time() - t0) > 2:
+                    break         
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
 
 def test_info_line():
     c1 = progress.UnsignedIntValue(val=0)
     s  = progress.StringValue(80)
     m1 = progress.UnsignedIntValue(val=30)
-    
-    with progress.ProgressBarFancy(count=c1, max_count=m1, verbose=1, interval=INTERVAL, info_line=s) as sc:
-        sc.start()
-        while True:
-            c1.value = c1.value + 1
-            if c1.value > 10:
-                s.value = b'info_line\nline2' 
-            time.sleep(INTERVAL/60)
-            if c1.value >= m1.value:
-                break
+    try:
+        with progress.ProgressBarFancy(count=c1, max_count=m1, verbose=1, interval=INTERVAL, info_line=s) as sc:
+            sc.start()
+            while True:
+                c1.value = c1.value + 1
+                if c1.value > 10:
+                    s.value = b'info_line\nline2' 
+                time.sleep(INTERVAL/60)
+                if c1.value >= m1.value:
+                    break
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
             
 def test_change_prepend():
     c1 = progress.UnsignedIntValue(val=0)
     m1 = progress.UnsignedIntValue(val=30)    
-    with progress.ProgressBarFancy(count=c1, max_count=m1, verbose=1, interval=INTERVAL) as sc:
-        sc.start()
-        while True:
-            c1.value = c1.value + 1
-            sc.prepend = [str(c1.value)]
-            time.sleep(INTERVAL/60)
-            if c1.value >= m1.value:
-                break
+    try:
+        with progress.ProgressBarFancy(count=c1, max_count=m1, verbose=1, interval=INTERVAL) as sc:
+            sc.start()
+            while True:
+                c1.value = c1.value + 1
+                sc.prepend = [str(c1.value)]
+                time.sleep(INTERVAL/60)
+                if c1.value >= m1.value:
+                    break
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)                   
             
 def test_stop_progress_with_large_interval():
     c1 = progress.UnsignedIntValue(val=0)
     m1 = progress.UnsignedIntValue(val=10)    
-    with progress.ProgressBarFancy(count=c1, max_count=m1, verbose=1, interval=10*INTERVAL) as sc:
-        sc.start()
-        while True:
-            c1.value = c1.value + 1
-            time.sleep(INTERVAL/5)
-            if c1.value >= m1.value:
-                break
-        print("done inner loop")
+    try:
+        with progress.ProgressBarFancy(count=c1, max_count=m1, verbose=1, interval=10*INTERVAL) as sc:
+            sc.start()
+            while True:
+                c1.value = c1.value + 1
+                time.sleep(INTERVAL/5)
+                if c1.value >= m1.value:
+                    break
+            print("done inner loop")
+    finally:
+        if sc.getpid() is not None:
+            os.kill(sc.getpid(), signal.SIGKILL)               
     print("done progress")
     
             
 if __name__ == "__main__":
     func = [    
 #     test_prefix_logger,
-    test_loop_basic,
+#     test_loop_basic,
 #     test_loop_signals,
 #     test_loop_normal_stop,
 #     test_loop_need_sigterm_to_stop,
@@ -749,7 +868,7 @@ if __name__ == "__main__":
 #     test_progress_bar_counter,
 #     test_progress_bar_counter_non_max,
 #     test_progress_bar_counter_hide_bar,
-#     test_progress_bar_slow_change,
+    test_progress_bar_slow_change,
 #     test_progress_bar_start_stop,
 #     test_progress_bar_fancy,
 #     test_progress_bar_multi_fancy,

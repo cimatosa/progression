@@ -26,7 +26,7 @@ import os
 class MultiLineFormatter(logging.Formatter):
     def format(self, record):
         _str = logging.Formatter.format(self, record)
-        header = str.split(record.message)[0]
+        header = _str.split(record.message)[0]
         _str = _str.replace('\n', '\n' + ' '*len(header))
         return _str
 
@@ -112,7 +112,6 @@ class Loop(object):
                  verbose                  = 0,
                  sigint                   = 'stop',
                  sigterm                  = 'stop',
-                 name                     = None,
                  auto_kill_on_last_resort = False,
                  logging_level            = None):
         """
@@ -122,14 +121,14 @@ class Loop(object):
         
         intervall [pos number] - time to "sleep" between each call
         
-        verbose [pos integer] - specifies the level of verbosity
-          [0--silent, 1--important information, 2--some debug info]
+        verbose [pos integer] / logging_level [pos integer] - specifies the level of verbosity
+          as pythons native logging system is used the meaing of logging_level can be found 
+          in the official docs. If logging_level is None use the old fashion verbose value
+          where the following mapping is applied: 0 -> ligging.ERROR, 1 -> logging.INFO, 2 -> logging.DEBUG  
           
         sigint [string] - signal handler string to set SIGINT behavior (see below)
         
         sigterm [string] - signal handler string to set SIGTERM behavior (see below)
-        
-        name [string] - use this name in messages instead of the PID 
         
         auto_kill_on_last_resort [bool] - If set False (default), ask user to send SIGKILL 
         to loop process in case normal stop and SIGTERM failed. If set True, send SIDKILL
@@ -137,19 +136,9 @@ class Loop(object):
         
         the signal handler string may be one of the following
             ing: ignore the incoming signal
-            stop: set the shared memory boolean to false -> prevents the loop from
-            repeating -> subprocess terminates when func returns and sleep time interval 
-            has passed.
+            stop: raise InterruptedError which is caught silently.
         """
         self._proc = None
-
-        if name is None:
-            self._name = self.__class__.__name__
-        else:
-            self._name = name
-
-        self._prefix = get_identifier(name = self._name, pid='main', bold=True)+' '
-
         if logging_level is None:
             if verbose == 0:
                 log.setLevel(logging.ERROR)
@@ -163,6 +152,7 @@ class Loop(object):
         self.func = func
         self.args = args
         self.interval = interval
+        assert self.interval >= 0
         self._run   = mp.Value('b', False)
         self._pause = mp.Value('b', False)
         
@@ -170,7 +160,7 @@ class Loop(object):
         self._sigterm = sigterm
         
         self._auto_kill_on_last_resort = auto_kill_on_last_resort
-        log.debug("%sauto_kill_on_last_resort = %s", self._prefix, self._auto_kill_on_last_resort)
+        log.debug("auto_kill_on_last_resort = %s", self._auto_kill_on_last_resort)
 
     def __enter__(self):
         return self
@@ -178,11 +168,11 @@ class Loop(object):
     def __exit__(self, *exc_args):
         # normal exit        
         if not self.is_alive():
-            log.debug("%sstopped on context exit", self._prefix)
+            log.debug("stopped on context exit")
             return
         
         # loop still runs on context exit -> __cleanup
-        log.debug("%sstill running on context exit", self._prefix)
+        log.debug("still running on context exit")
         self.__cleanup()
 
     def __cleanup(self):
@@ -203,14 +193,14 @@ class Loop(object):
         # set run to False and wait some time -> see what happens            
         self.run = False
         if check_process_termination(proc                     = self._proc,
-                                     prefix                   = self._prefix,
                                      timeout                  = 2*self.interval,
+                                     prefix                   = '',
                                      log                      = log,
                                      auto_kill_on_last_resort = self._auto_kill_on_last_resort):
-            log.debug("%scleanup successful", self._prefix)
+            log.debug("cleanup successful")
             self._proc = None
         else:
-            raise RuntimeError("{}cleanup FAILED!".format(self._prefix))
+            raise RuntimeError("cleanup FAILED!")
             
 
     @staticmethod
@@ -226,7 +216,7 @@ class Loop(object):
         except NameError:
             log.addHandler(def_handl)
                   
-        log.warning("%senter wrapper_func", prefix)            
+        log.warning("enter wrapper_func")            
 
         SIG_handler_Loop(shared_mem_run, sigint, sigterm, log, prefix)
 
@@ -239,11 +229,13 @@ class Loop(object):
                     # if not pause mode -> call func and see what happens
                     try:
                         quit_loop = func(*args)
+                    except InterruptedError:
+                        raise
                     except:
                         err, val, trb = sys.exc_info()
                         print(ESC_NO_CHAR_ATTR, end='')
                         sys.stdout.flush()
-                        log.error("%serror %s occurred in loop alling 'func(*args)'", prefix, err)
+                        log.error("error %s occurred in loop alling 'func(*args)'", err)
                         log.debug("show traceback.print_exc()\n%s", traceback.print_exc())
                         break
     
@@ -254,10 +246,10 @@ class Loop(object):
             except InterruptedError:
                 print(ESC_NO_CHAR_ATTR, end='')
                 sys.stdout.flush()
-                log.debug("%squit wrapper_func due to InterruptedError", prefix)
+                log.debug("quit wrapper_func due to InterruptedError")
                 break
 
-        log.debug("%s_wrapper_func terminates gracefully", prefix)
+        log.debug("wrapper_func terminates gracefully")
 
     def start(self):
         """
@@ -265,7 +257,7 @@ class Loop(object):
         """
 
         if self.is_alive():
-            log.warn("%sa process with pid %s is already running", self._prefix, self._proc.pid)
+            log.warn("a process with pid %s is already running", self._proc.pid)
             return
             
         self.run = True
@@ -275,15 +267,15 @@ class Loop(object):
             listener = QueueListener(log_queue, def_handl)
             listener.start()
         except NameError:
-            log.error("%sQueueListener not available in this python version (need at least 3.2)\n"
-                      "this may resault in incoheerent logging", self._prefix)
+            log.error("QueueListener not available in this python version (need at least 3.2)\n"
+                      "this may resault in incoheerent logging")
             log_queue = None
+        name = self.__class__.__name__
         self._proc = mp.Process(target = Loop._wrapper_func, 
                                 args = (self.func, self.args, self._run, self._pause, self.interval, 
-                                        log_queue, self._sigint, self._sigterm, self._name, log.level),
-                                name=self._name)
+                                        log_queue, self._sigint, self._sigterm, name, log.level))
         self._proc.start()
-        log.debug("%sstarted a new process with pid %s", self._prefix, self._proc.pid)
+        log.debug("started a new process with pid %s", self._proc.pid)
         
     def stop(self):
         """
@@ -297,7 +289,7 @@ class Loop(object):
         if self.is_alive():
             self._proc.terminate()
         else:
-            log.warn("%sthere is no running process to stop", self._prefix)
+            log.warn("there is no running process to stop")
             return
         
         self.__cleanup()
@@ -319,15 +311,18 @@ class Loop(object):
     def pause(self):
         if self.run:
             self._pause.value = True
-            log.debug("%sprocess with pid %s paused", self._prefix, self._proc.pid)
+            log.debug("process with pid %s paused", self._proc.pid)
         
     def resume(self):
         if self.run:
             self._pause.value = False
-            log.debug("%sprocess with pid %s resumed", self._prefix, self._proc.pid)
+            log.debug("process with pid %s resumed", self._proc.pid)
 
     def getpid(self):
-        return self._proc.pid
+        if self.is_alive():
+            return self._proc.pid
+        else:
+            return None
     
     @property
     def run(self):
@@ -409,7 +404,6 @@ class Progress(Loop):
                  verbose           = 0,
                  sigint            = 'stop', 
                  sigterm           = 'stop',
-                 name              = None,
                  info_line         = None):
         """       
         count [mp.Value] - shared memory to hold the current state, (list or single value)
@@ -468,14 +462,12 @@ class Progress(Loop):
         self.prepend = []
         self.lock = []
         self.last_count = []
-        self.last_old_count = []
-        self.last_old_time = []
+        self.last_speed = []
         for i in range(self.len):
             self.q.append(myQueue())  # queue to save the last speed_calc_cycles
                                       # (time, count) information to calculate speed
             self.last_count.append(UnsignedIntValue())
-            self.last_old_count.append(UnsignedIntValue())
-            self.last_old_time.append(FloatValue())
+            self.last_speed.append(FloatValue())
             self.lock.append(mp.Lock())
             self.start_time.append(FloatValue(val=time.time()))
             if prepend is None:
@@ -510,8 +502,7 @@ class Progress(Loop):
                               self.speed_calc_cycles,
                               self.width,
                               self.q,
-                              self.last_old_count,
-                              self.last_old_time,
+                              self.last_speed,
                               self.prepend,
                               self.__class__.show_stat,
                               self.len,
@@ -522,7 +513,6 @@ class Progress(Loop):
                       verbose  = verbose,
                       sigint   = sigint,
                       sigterm  = sigterm,
-                      name     = name,
                       auto_kill_on_last_resort = True)
 
     def __exit__(self, *exc_args):
@@ -536,8 +526,7 @@ class Progress(Loop):
               max_count, 
               speed_calc_cycles, 
               q, 
-              last_old_count,
-              last_old_time,
+              last_speed,
               lock):
         """
             do the pre calculations in order to get TET, speed, TTG
@@ -566,12 +555,16 @@ class Progress(Loop):
                     old_count_value, old_time = 0, start_time_value
             
             last_count.value = count_value
-            last_old_count.value = old_count_value
-            last_old_time.value = old_time 
+            #last_old_count.value = old_count_value
+            #last_old_time.value = old_time
+            
+            speed = (count_value - old_count_value) / (current_time - old_time)
+            last_speed.value = speed 
         else:
             # progress has not changed since last call
             # use also old (cached) data from the queue
-            old_count_value, old_time = last_old_count.value, last_old_time.value
+            #old_count_value, old_time = last_old_count.value, last_old_time.value
+            speed = last_speed.value  
 
         if (max_count is None):
             max_count_value = None
@@ -579,7 +572,7 @@ class Progress(Loop):
             max_count_value = max_count.value
             
         tet = (current_time - start_time_value)
-        speed = (count_value - old_count_value) / (current_time - old_time)
+        
         if (speed == 0) or (max_count_value is None) or (max_count_value == 0):
             ttg = None
         else:
@@ -618,8 +611,7 @@ class Progress(Loop):
                                          self.speed_calc_cycles,
                                          self.width,
                                          self.q,
-                                         self.last_old_count,
-                                         self.last_old_time,
+                                         self.last_speed,
                                          self.prepend,
                                          self.__class__.show_stat,
                                          self.len, 
@@ -672,8 +664,7 @@ class Progress(Loop):
                           speed_calc_cycles, 
                           width, 
                           q,
-                          last_old_count,
-                          last_old_time, 
+                          last_speed,
                           prepend, 
                           show_stat_function,
                           add_args, 
@@ -685,8 +676,7 @@ class Progress(Loop):
                                                                         max_count, 
                                                                         speed_calc_cycles, 
                                                                         q,
-                                                                        last_old_count,
-                                                                        last_old_time, 
+                                                                        last_speed, 
                                                                         lock) 
         return show_stat_function(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **add_args)
 
@@ -698,8 +688,7 @@ class Progress(Loop):
                                 speed_calc_cycles, 
                                 width, 
                                 q, 
-                                last_old_count,
-                                last_old_time,
+                                last_speed,
                                 prepend, 
                                 show_stat_function, 
                                 len_, 
@@ -720,8 +709,7 @@ class Progress(Loop):
                                        speed_calc_cycles, 
                                        width, 
                                        q[i],
-                                       last_old_count[i],
-                                       last_old_time[i],
+                                       last_speed[i],
                                        prepend[i], 
                                        show_stat_function, 
                                        add_args, 
@@ -751,9 +739,8 @@ class Progress(Loop):
         # terminal.
         
         if (self.__class__.__name__ in TERMINAL_PRINT_LOOP_CLASSES):
-            if not terminal_reserve(progress_obj=self, identifier=self._prefix):
-                if self.verbose > 1:
-                    print("%stty already reserved, NOT starting the progress loop!".format(self._prefix))
+            if not terminal_reserve(progress_obj=self):
+                log.warning("tty already reserved, NOT starting the progress loop!")
                 return
         
         super(Progress, self).start()
@@ -771,7 +758,7 @@ class Progress(Loop):
         self._auto_kill_on_last_resort = make_sure_its_down 
             
         super(Progress, self).stop()
-        terminal_unreserve(progress_obj=self, verbose=self.verbose, identifier=self._prefix)
+        terminal_unreserve(progress_obj=self, verbose=self.verbose)
 
         if self.show_on_exit:
             self._show_stat()
@@ -793,23 +780,22 @@ class ProgressBar(Progress):
                   verbose=0,
                   sigint='stop', 
                   sigterm='stop',
-                  name='progress_bar',
                   info_line=None):
         """
             width [int/'auto'] - the number of characters used to show the Progress bar,
             use 'auto' to determine width from terminal information -> see _set_width
         """
-        super(ProgressBar, self).__init__(count=count,
-                         max_count=max_count,
-                         prepend=prepend,
-                         speed_calc_cycles=speed_calc_cycles,
-                         width=width,
-                         interval=interval,
-                         verbose = verbose,
-                         sigint=sigint,
-                         sigterm=sigterm,
-                         name=name,
-                         info_line=info_line)
+        Progress.__init__(self,
+                          count=count,
+                          max_count=max_count,
+                          prepend=prepend,
+                          speed_calc_cycles=speed_calc_cycles,
+                          width=width,
+                          interval=interval,
+                          verbose = verbose,
+                          sigint=sigint,
+                          sigterm=sigterm,
+                          info_line=info_line)
 
         self._PRE_PREPEND = ESC_NO_CHAR_ATTR + ESC_RED
         self._POST_PREPEND = ESC_BOLD + ESC_GREEN
@@ -876,20 +862,19 @@ class ProgressBarCounter(Progress):
                  verbose=0,
                  sigint='stop', 
                  sigterm='stop',
-                 name='progress_bar_counter',
                  info_line=None):
         
-        super(ProgressBarCounter, self).__init__(count=count,
-                         max_count=max_count,
-                         prepend=prepend,
-                         speed_calc_cycles=speed_calc_cycles_bar,
-                         width=width,
-                         interval=interval,
-                         verbose = verbose,
-                         sigint=sigint,
-                         sigterm=sigterm,
-                         name=name,
-                         info_line=info_line)
+        Progress.__init__(self,
+                          count=count,
+                          max_count=max_count,
+                          prepend=prepend,
+                          speed_calc_cycles=speed_calc_cycles_bar,
+                          width=width,
+                          interval=interval,
+                          verbose = verbose,
+                          sigint=sigint,
+                          sigterm=sigterm,
+                          info_line=info_line)
         
         self.counter_count = []
         self.counter_q = []
@@ -985,7 +970,6 @@ class ProgressBarFancy(Progress):
                   verbose=0,
                   sigint='stop', 
                   sigterm='stop',
-                  name='progress_bar',
                   info_line=None):
         """
             width [int/'auto'] - the number of characters used to show the Progress bar,
@@ -994,17 +978,17 @@ class ProgressBarFancy(Progress):
         if not self.__class__.__name__ in TERMINAL_PRINT_LOOP_CLASSES:
             TERMINAL_PRINT_LOOP_CLASSES.append(self.__class__.__name__)
             
-        super(ProgressBarFancy, self).__init__(count=count,
-                         max_count=max_count,
-                         prepend=prepend,
-                         speed_calc_cycles=speed_calc_cycles,
-                         width=width,
-                         interval=interval,
-                         verbose = verbose,
-                         sigint=sigint,
-                         sigterm=sigterm,
-                         name=name,
-                         info_line=info_line)
+        Progress.__init__(self,
+                          count=count,
+                          max_count=max_count,
+                          prepend=prepend,
+                          speed_calc_cycles=speed_calc_cycles,
+                          width=width,
+                          interval=interval,
+                          verbose = verbose,
+                          sigint=sigint,
+                          sigterm=sigterm,
+                          info_line=info_line)
         
     @staticmethod        
     def get_d(s1, s2, width, lp, lps):
