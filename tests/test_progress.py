@@ -13,12 +13,21 @@ import time
 import traceback
 import io
 
-from os.path import abspath, dirname, split
 
+# setup path to import progress
+from os.path import abspath, dirname, split
 # Add parent directory to beginning of path variable
 sys.path = [split(dirname(abspath(__file__)))[0]] + sys.path
 
 from progress import progress
+
+
+# restore python2 compatibility
+if sys.version_info[0] == 2:
+    ProcessLookupError = OSError
+    inMemoryBuffer = io.BytesIO
+elif sys.version_info[0] == 3:
+    inMemoryBuffer = io.StringIO
 
 def _kill_pid(pid):
     try:
@@ -172,7 +181,7 @@ def test_loop_normal_stop():
             
 def test_loop_stdout_pipe():
    
-    myout = io.StringIO()
+    myout = inMemoryBuffer()
     stdout = sys.stdout
     sys.stdout = myout
     
@@ -191,15 +200,13 @@ def test_loop_stdout_pipe():
         _kill_pid(loop.getpid())
         
     cap_out = myout.getvalue()
-    print("captured stdout '{}'".format(cap_out))
     test_string = test_string+"\n"
-    print("compare with '{}'".format(test_string))
-    
+
     assert cap_out == test_string
             
 def test_loop_pause():
    
-    myout = io.StringIO()
+    myout = inMemoryBuffer()
     stdout = sys.stdout
     sys.stdout = myout
     
@@ -983,39 +990,39 @@ def test_stopping_loop():
 
 if __name__ == "__main__":
     func = [    
-#     test_catch_subprocess_error,
-#     test_prefix_logger,
-#     test_loop_basic,
-#     test_loop_signals,
-#     test_loop_logging,
-#     test_loop_normal_stop,
-#     test_loop_stdout_pipe,
-#     test_loop_pause,
-#     test_loop_need_sigterm_to_stop,
-#     test_loop_need_sigkill_to_stop,
-#     test_why_with_statement,
-#     test_progress_bar,
-#     test_progress_bar_with_statement,
-#     test_progress_bar_multi,
-#     test_status_counter,
-#     test_status_counter_multi,
-#     test_intermediate_prints_while_running_progess_bar,
-#     test_intermediate_prints_while_running_progess_bar_multi,
-#     test_progress_bar_counter,
-#     test_progress_bar_counter_non_max,
-#     test_progress_bar_counter_hide_bar,
-#     test_progress_bar_slow_change,
-#     test_progress_bar_start_stop,
-#     test_progress_bar_fancy,
-#     test_progress_bar_multi_fancy,
-#     test_progress_bar_fancy_small,
-#     test_progress_bar_counter_fancy,
-#     test_progress_bar_counter_fancy_non_max,
-#     test_progress_bar_counter_fancy_hide_bar,
-#     test_info_line,
-#     test_change_prepend,
-#     test_stop_progress_with_large_interval,
-#     test_get_identifier,
+    test_catch_subprocess_error,
+    test_prefix_logger,
+    test_loop_basic,
+    test_loop_signals,
+    test_loop_logging,
+    test_loop_normal_stop,
+    test_loop_stdout_pipe,
+    test_loop_pause,
+    test_loop_need_sigterm_to_stop,
+    test_loop_need_sigkill_to_stop,
+    test_why_with_statement,
+    test_progress_bar,
+    test_progress_bar_with_statement,
+    test_progress_bar_multi,
+    test_status_counter,
+    test_status_counter_multi,
+    test_intermediate_prints_while_running_progess_bar,
+    test_intermediate_prints_while_running_progess_bar_multi,
+    test_progress_bar_counter,
+    test_progress_bar_counter_non_max,
+    test_progress_bar_counter_hide_bar,
+    test_progress_bar_slow_change,
+    test_progress_bar_start_stop,
+    test_progress_bar_fancy,
+    test_progress_bar_multi_fancy,
+    test_progress_bar_fancy_small,
+    test_progress_bar_counter_fancy,
+    test_progress_bar_counter_fancy_non_max,
+    test_progress_bar_counter_fancy_hide_bar,
+    test_info_line,
+    test_change_prepend,
+    test_stop_progress_with_large_interval,
+    test_get_identifier,
     test_stopping_loop,
     lambda: print("END")
     ]

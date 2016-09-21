@@ -71,6 +71,9 @@ else:
 class LoopExceptionError(RuntimeError):
     pass
 
+class LoopInterruptError(Exception):
+    pass
+
 def get_identifier(name=None, pid=None, bold=True):
     if pid is None:
         pid = os.getpid()
@@ -237,7 +240,7 @@ class Loop(object):
                   
         log.debug("enter wrapper_func")            
 
-        SIG_handler_Loop(shared_mem_run, sigint, sigterm, log, prefix)
+        SIG_handler_Loop(sigint, sigterm, log, prefix)
 
         while shared_mem_run.value:
             try:
@@ -248,7 +251,7 @@ class Loop(object):
                     # if not pause mode -> call func and see what happens
                     try:
                         quit_loop = func(*args)
-                    except InterruptedError:
+                    except LoopInterruptError:
                         raise
                     except Exception as e:
                         log.error("error %s occurred in loop alling 'func(*args)'", type(e))
@@ -260,7 +263,7 @@ class Loop(object):
                         break
                     
                 time.sleep(interval)
-            except InterruptedError:
+            except LoopInterruptError:
                 log.debug("quit wrapper_func due to InterruptedError")
                 break
 
@@ -296,7 +299,8 @@ class Loop(object):
         name = self.__class__.__name__
         
         self.conn_recv, self.conn_send = mp.Pipe(False)
-        self._monitor_thread = threading.Thread(target = self._monitor_stdout_pipe, daemon=True)
+        self._monitor_thread = threading.Thread(target = self._monitor_stdout_pipe)
+        self._monitor_thread.daemon=True
         self._monitor_thread.start()
         log.debug("started monitor thread")
         
@@ -1188,8 +1192,7 @@ class SIG_handler_Loop(object):
     of this boolean object before each repetition, the loop will stop when
     a signal was receives.
     """
-    def __init__(self, shared_mem_run, sigint, sigterm, log, prefix):
-        self.shared_mem_run = shared_mem_run
+    def __init__(self, sigint, sigterm, log, prefix):
         self.set_signal(signal.SIGINT, sigint)
         self.set_signal(signal.SIGTERM, sigterm)
         self.prefix = prefix
@@ -1209,8 +1212,7 @@ class SIG_handler_Loop(object):
 
     def _stop_on_signal(self, signal, frame):
         self.log.info("%sreceived sig %s -> raise InterruptedError", self.prefix, signal_dict[signal])
-        #self.shared_mem_run.value = False
-        raise InterruptedError()
+        raise LoopInterruptError()
 
 def ESC_MOVE_LINE_UP(n):
     return "\033[{}A".format(n)
