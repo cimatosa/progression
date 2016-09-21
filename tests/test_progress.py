@@ -11,7 +11,7 @@ import signal
 import sys
 import time
 import traceback
-
+import io
 
 from os.path import abspath, dirname, split
 
@@ -20,11 +20,17 @@ sys.path = [split(dirname(abspath(__file__)))[0]] + sys.path
 
 from progress import progress
 
+def _kill_pid(pid):
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except (ProcessLookupError, TypeError):
+        pass
+
 def _safe_assert_not_loop_is_alive(loop):
     try:
         assert not loop.is_alive()
     except AssertionError:
-        os.kill(loop.getpid(), signal.SIGKILL)
+        _kill_pid(loop.getpid())
         raise
 
 INTERVAL = 0.2
@@ -70,8 +76,7 @@ def test_loop_basic():
         _safe_assert_not_loop_is_alive(loop)  
         print("[+] loop stopped")
     finally:
-        if loop.getpid() is not None:
-            os.kill(loop.getpid(), signal.SIGKILL)
+        _kill_pid(loop.getpid())
 
 def test_loop_signals():
     f = lambda: print("        I'm process {}".format(os.getpid()))
@@ -101,7 +106,7 @@ def test_loop_signals():
         print("[+] loop stopped running")
         
         print("## ignore SIGINT ##")
-        loop = progress.Loop(func=f, interval=INTERVAL, verbose=0, sigint='ign', sigterm='ign')
+        loop = progress.Loop(func=f, interval=INTERVAL, verbose=2, sigint='ign', sigterm='ign')
     
         loop.start()
         time.sleep(0.5*INTERVAL)
@@ -132,8 +137,7 @@ def test_loop_signals():
         assert not loop.is_alive()
         print("[+] loop stopped running")
     finally:
-        if loop.getpid() is not None:
-            os.kill(loop.getpid(), signal.SIGKILL)
+        _kill_pid(loop.getpid())
 
 def non_stopping_function():
     print("        I'm pid", os.getpid())
@@ -164,8 +168,90 @@ def test_loop_normal_stop():
         _safe_assert_not_loop_is_alive(loop)
         print("[+] normal loop stopped")
     finally:
-        if loop.getpid() is not None:
-            os.kill(loop.getpid(), signal.SIGKILL)        
+        _kill_pid(loop.getpid())
+            
+def test_loop_stdout_pipe():
+   
+    myout = io.StringIO()
+    stdout = sys.stdout
+    sys.stdout = myout
+    
+    test_string = "test out öäüß"
+    
+    try:
+        with progress.Loop(func     = lambda: print(test_string),
+                           verbose  = 0,
+                           interval = INTERVAL) as loop:
+            loop.start()
+            time.sleep(0.2*INTERVAL)
+            assert loop.is_alive()        
+        _safe_assert_not_loop_is_alive(loop)
+    finally:
+        sys.stdout = stdout
+        _kill_pid(loop.getpid())
+        
+    cap_out = myout.getvalue()
+    print("captured stdout '{}'".format(cap_out))
+    test_string = test_string+"\n"
+    print("compare with '{}'".format(test_string))
+    
+    assert cap_out == test_string
+            
+def test_loop_pause():
+   
+    myout = io.StringIO()
+    stdout = sys.stdout
+    sys.stdout = myout
+    
+    try:
+        with progress.Loop(func     = normal_function,
+                           verbose  = 0,
+                           interval = INTERVAL) as loop:
+            loop.start()
+            time.sleep(0.2*INTERVAL)
+            assert loop.is_alive()
+            print("[+] loop running")
+            loop.pause()
+            print("[+] loop paused")
+            time.sleep(3*INTERVAL)
+            loop.resume()
+            print("[+] loop resumed")
+            time.sleep(3*INTERVAL)
+        
+        _safe_assert_not_loop_is_alive(loop)
+        print("[+] normal loop stopped")
+    finally:
+        sys.stdout = stdout
+        _kill_pid(loop.getpid())
+            
+    print(myout.getvalue())
+
+           
+def test_loop_logging():   
+    my_err = io.StringIO()
+    progress.def_handl.stream = my_err
+                
+    try:
+        with progress.Loop(func          = normal_function,
+                           verbose       = 2,
+                           interval      = INTERVAL,
+                           logging_level = logging.ERROR) as loop:
+            loop.start()
+            time.sleep(0.5*INTERVAL)
+            assert loop.is_alive()
+            print("[+] normal loop running")
+            loop.stop()
+        
+        _safe_assert_not_loop_is_alive(loop)
+        print("[+] normal loop stopped")
+    finally:
+        _kill_pid(loop.getpid())
+            
+    s = my_err.getvalue()
+    print(s)
+    assert len(s) == 0 
+    
+    progress.def_handl.stream = sys.stderr
     
 def test_loop_need_sigterm_to_stop():
     try:
@@ -180,8 +266,7 @@ def test_loop_need_sigterm_to_stop():
         _safe_assert_not_loop_is_alive(loop)
         print("[+] sleepy loop stopped")
     finally:
-        if loop.getpid() is not None:
-            os.kill(loop.getpid(), signal.SIGKILL)        
+        _kill_pid(loop.getpid())        
     
 def test_loop_need_sigkill_to_stop():
     try:
@@ -197,8 +282,7 @@ def test_loop_need_sigkill_to_stop():
         _safe_assert_not_loop_is_alive(loop)
         print("[+] NON stopping loop stopped")
     finally:
-        if loop.getpid() is not None:
-            os.kill(loop.getpid(), signal.SIGKILL)        
+        _kill_pid(loop.getpid())        
         
 def test_why_with_statement():
     """
@@ -318,8 +402,7 @@ def test_progress_bar():
         sb.stop()
         time.sleep(2*INTERVAL)
     finally:
-        if sb.getpid() is not None:
-            os.kill(sb.getpid(), signal.SIGKILL)        
+        _kill_pid(sb.getpid())        
     
 def test_progress_bar_with_statement():
     print("TERMINAL_RESERVATION", progress.TERMINAL_RESERVATION)
@@ -344,8 +427,7 @@ def test_progress_bar_with_statement():
         time.sleep(0.5*INTERVAL)
         sb.stop()
     finally:
-        if sb.getpid() is not None:
-            os.kill(sb.getpid(), signal.SIGKILL)           
+        _kill_pid(sb.getpid())           
     
 def test_progress_bar_multi():
     print("TERMINAL_RESERVATION", progress.TERMINAL_RESERVATION)
@@ -382,8 +464,7 @@ def test_progress_bar_multi():
                     
                 time.sleep(INTERVAL/50)
     finally:
-        if sbm.getpid() is not None:
-            os.kill(sbm.getpid(), signal.SIGKILL)                   
+        _kill_pid(sbm.getpid())
         
            
 def test_status_counter():
@@ -409,8 +490,8 @@ def test_status_counter():
                 
                 time.sleep(INTERVAL/50)
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())
+                  
             
 def test_status_counter_multi():
     c1 = progress.UnsignedIntValue(val=0)
@@ -431,8 +512,8 @@ def test_status_counter_multi():
                 
                 time.sleep(INTERVAL/50)
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())
+                   
             
 def test_intermediate_prints_while_running_progess_bar():
     c = progress.UnsignedIntValue(val=0)
@@ -456,8 +537,8 @@ def test_intermediate_prints_while_running_progess_bar():
         print("IN EXCEPTION TEST")
         traceback.print_exc()
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)   
+        _kill_pid(sc.getpid())
+   
             
             
 def test_intermediate_prints_while_running_progess_bar_multi():
@@ -483,8 +564,8 @@ def test_intermediate_prints_while_running_progess_bar_multi():
                 
                 time.sleep(INTERVAL/50)
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())
+                   
     
 def test_progress_bar_counter():
     c1 = progress.UnsignedIntValue(val=0)
@@ -515,8 +596,8 @@ def test_progress_bar_counter():
                 if (time.time() - t0) > 2:
                     break
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())
+                   
 
 def test_progress_bar_counter_non_max():
     c1 = progress.UnsignedIntValue(val=0)
@@ -540,8 +621,8 @@ def test_progress_bar_counter_non_max():
                 if (time.time() - t0) > 2:
                     break
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())
+                   
             
 def test_progress_bar_counter_hide_bar():
     c1 = progress.UnsignedIntValue(val=0)
@@ -568,8 +649,8 @@ def test_progress_bar_counter_hide_bar():
                 if (time.time() - t0) > 2:
                     break       
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())
+                   
             
 def test_progress_bar_slow_change():   
     max_count_value = 5
@@ -589,8 +670,7 @@ def test_progress_bar_slow_change():
                 count.value = i
                                 
     finally:
-        if sbm.getpid() is not None:
-            os.kill(sbm.getpid(), signal.SIGKILL)
+        _kill_pid(sbm.getpid())
 
     try:
         count.value = 0
@@ -605,8 +685,8 @@ def test_progress_bar_slow_change():
                 count.value = i
                                 
     finally:
-        if sbm.getpid() is not None:
-            os.kill(sbm.getpid(), signal.SIGKILL)       
+        _kill_pid(sbm.getpid())
+              
             
 def test_progress_bar_start_stop():
     max_count_value = 20
@@ -631,8 +711,8 @@ def test_progress_bar_start_stop():
                     sbm.start()
             print("this WILL overwrite the progressbar, because we are still inside it's context (still running)")            
     finally:
-        if sbm.getpid() is not None:
-            os.kill(sbm.getpid(), signal.SIGKILL)   
+        _kill_pid(sbm.getpid())
+   
 
     print()
     print("create a progress bar, but do not start")
@@ -644,8 +724,8 @@ def test_progress_bar_start_stop():
                                   verbose=1) as sbm:
             pass
     finally:
-        if sbm.getpid() is not None:
-            os.kill(sbm.getpid(), signal.SIGKILL)           
+        _kill_pid(sbm.getpid())
+           
     print("this is after progress.__exit__, there should be no prints from the progress")
             
 def test_progress_bar_fancy():
@@ -658,8 +738,7 @@ def test_progress_bar_fancy():
                 count.value = i+1
                 time.sleep(INTERVAL/50)
     finally:
-        if sb.getpid() is not None:
-            os.kill(sb.getpid(), signal.SIGKILL)                   
+        _kill_pid(sb.getpid())                  
  
 def test_progress_bar_multi_fancy():
     n = 4
@@ -695,8 +774,8 @@ def test_progress_bar_multi_fancy():
                     
                 time.sleep(INTERVAL/200)
     finally:
-        if sbm.getpid() is not None:
-            os.kill(sbm.getpid(), signal.SIGKILL)                   
+        _kill_pid(sbm.getpid())
+                 
             
 def test_progress_bar_fancy_small():
     count = progress.UnsignedIntValue()
@@ -711,9 +790,7 @@ def test_progress_bar_fancy_small():
                     count.value = i+1
                     time.sleep(INTERVAL/30)            
         finally:
-            if sb.getpid() is not None:
-                os.kill(sb.getpid(), signal.SIGKILL)                       
-            
+            _kill_pid(sb.getpid())            
 def test_progress_bar_counter_fancy():
     c1 = progress.UnsignedIntValue(val=0)
     c2 = progress.UnsignedIntValue(val=0)
@@ -742,8 +819,7 @@ def test_progress_bar_counter_fancy():
                 if (time.time() - t0) > 2:
                     break
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())                  
 
 def test_progress_bar_counter_fancy_non_max():
     c1 = progress.UnsignedIntValue(val=0)
@@ -766,8 +842,7 @@ def test_progress_bar_counter_fancy_non_max():
                 if (time.time() - t0) > 2:
                     break
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())                  
             
 def test_progress_bar_counter_fancy_hide_bar():
     c1 = progress.UnsignedIntValue(val=0)
@@ -794,8 +869,8 @@ def test_progress_bar_counter_fancy_hide_bar():
                 if (time.time() - t0) > 2:
                     break         
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())
+                  
 
 def test_info_line():
     c1 = progress.UnsignedIntValue(val=0)
@@ -812,8 +887,8 @@ def test_info_line():
                 if c1.value >= m1.value:
                     break
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())
+                   
             
 def test_change_prepend():
     c1 = progress.UnsignedIntValue(val=0)
@@ -828,8 +903,8 @@ def test_change_prepend():
                 if c1.value >= m1.value:
                     break
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)                   
+        _kill_pid(sc.getpid())
+                   
             
 def test_stop_progress_with_large_interval():
     c1 = progress.UnsignedIntValue(val=0)
@@ -844,17 +919,78 @@ def test_stop_progress_with_large_interval():
                     break
             print("done inner loop")
     finally:
-        if sc.getpid() is not None:
-            os.kill(sc.getpid(), signal.SIGKILL)               
+        _kill_pid(sc.getpid())
+               
     print("done progress")
     
+def test_get_identifier():
+    for bold in [True, False]:
+        for name in [None, 'test']:
+            for pid in [None, 'no PID']:
+                id = progress.get_identifier(name=name, pid=pid, bold=bold)
+                print(id)
+    
+def test_catch_subprocess_error():
+    def f_error():
+        raise RuntimeError("my ERROR")
+    
+    def f_no_error():
+        print("no error")
+        
+    try:
+        with progress.Loop(func     = f_no_error,
+                           verbose  = 2,
+                           interval = INTERVAL) as loop:
+            loop.start()
+            time.sleep(0.5*INTERVAL)
+
+        _safe_assert_not_loop_is_alive(loop)
+        print("[+] normal loop stopped")
+    finally:
+        _kill_pid(loop.getpid())
+
+    try:
+        with progress.Loop(func     = f_error,
+                           verbose  = 2,
+                           interval = INTERVAL) as loop:
+            loop.start()
+            time.sleep(0.5*INTERVAL)
+
+        _safe_assert_not_loop_is_alive(loop)
+        print("[+] normal loop stopped")
+    except progress.LoopExceptionError:
+        print("noticed that an exception occurred")
+        
+    finally:
+        _kill_pid(loop.getpid())    
+    
+def test_stopping_loop():
+    def f():
+        return True
+    
+    try:
+        with progress.Loop(func     = f,
+                           verbose  = 2,
+                           interval = INTERVAL) as loop:
+            loop.start()
+            time.sleep(1.5*INTERVAL)
             
+            print("this loop has stopped it self, because it returned True")
+            _safe_assert_not_loop_is_alive(loop)
+                   
+    finally:
+        _kill_pid(loop.getpid())
+
 if __name__ == "__main__":
     func = [    
+#     test_catch_subprocess_error,
 #     test_prefix_logger,
 #     test_loop_basic,
 #     test_loop_signals,
+#     test_loop_logging,
 #     test_loop_normal_stop,
+#     test_loop_stdout_pipe,
+#     test_loop_pause,
 #     test_loop_need_sigterm_to_stop,
 #     test_loop_need_sigkill_to_stop,
 #     test_why_with_statement,
@@ -868,7 +1004,7 @@ if __name__ == "__main__":
 #     test_progress_bar_counter,
 #     test_progress_bar_counter_non_max,
 #     test_progress_bar_counter_hide_bar,
-    test_progress_bar_slow_change,
+#     test_progress_bar_slow_change,
 #     test_progress_bar_start_stop,
 #     test_progress_bar_fancy,
 #     test_progress_bar_multi_fancy,
@@ -879,6 +1015,8 @@ if __name__ == "__main__":
 #     test_info_line,
 #     test_change_prepend,
 #     test_stop_progress_with_large_interval,
+#     test_get_identifier,
+    test_stopping_loop,
     lambda: print("END")
     ]
     

@@ -15,6 +15,8 @@ except ImportError:
                   "no coheerent subprocess logging pissible")
 import math
 import multiprocessing as mp
+import threading
+
 from multiprocessing.sharedctypes import Synchronized
 import signal
 import subprocess as sp
@@ -22,6 +24,16 @@ import sys
 import time
 import traceback
 import os
+
+class StdoutPipe(object):
+    def __init__(self, conn):
+        self.conn = conn
+        
+    def flush(self):
+        pass
+    def write(self, b):
+        self.conn.send(b)
+        
 
 class MultiLineFormatter(logging.Formatter):
     def format(self, record):
@@ -37,10 +49,6 @@ fmt = MultiLineFormatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
 def_handl.setFormatter(fmt)
 log = logging.getLogger(__name__)
 log.addHandler(def_handl)
-
-def get_prefix_Formatter(prefix, fmt):
-    msg_idx = fmt.find('%(message)s')
-    return logging.Formatter(fmt[:msg_idx]+prefix+fmt[msg_idx:])
 
 try:
     from shutil import get_terminal_size as shutil_get_terminal_size
@@ -60,6 +68,8 @@ if sys.version_info[0] == 2:
 else:
     _jm_compatible_bytearray = bytearray
 
+class LoopExceptionError(RuntimeError):
+    pass
 
 def get_identifier(name=None, pid=None, bold=True):
     if pid is None:
@@ -113,7 +123,8 @@ class Loop(object):
                  sigint                   = 'stop',
                  sigterm                  = 'stop',
                  auto_kill_on_last_resort = False,
-                 logging_level            = None):
+                 logging_level            = None,
+                 raise_error              = True):
         """
         func [callable] - function to be called periodically
         
@@ -139,6 +150,7 @@ class Loop(object):
             stop: raise InterruptedError which is caught silently.
         """
         self._proc = None
+        # self.old_logging_level = log.level
         if logging_level is None:
             if verbose == 0:
                 log.setLevel(logging.ERROR)
@@ -148,7 +160,7 @@ class Loop(object):
                 log.setLevel(logging.DEBUG)
         else:
             log.setLevel(logging_level)
-
+            
         self.func = func
         self.args = args
         self.interval = interval
@@ -161,19 +173,20 @@ class Loop(object):
         
         self._auto_kill_on_last_resort = auto_kill_on_last_resort
         log.debug("auto_kill_on_last_resort = %s", self._auto_kill_on_last_resort)
+        
+        self._monitor_thread = None
+        self.raise_error = raise_error
 
     def __enter__(self):
         return self
     
-    def __exit__(self, *exc_args):
-        # normal exit        
-        if not self.is_alive():
-            log.debug("stopped on context exit")
-            return
+    def __exit__(self, *exc_args):       
+        if self.is_alive():
+            log.debug("loop is still running on context exit")
+        else:    
+            log.debug("loop has stopped on context exit")
+        self.stop()
         
-        # loop still runs on context exit -> __cleanup
-        log.debug("still running on context exit")
-        self.__cleanup()
 
     def __cleanup(self):
         """
@@ -198,25 +211,31 @@ class Loop(object):
                                      log                      = log,
                                      auto_kill_on_last_resort = self._auto_kill_on_last_resort):
             log.debug("cleanup successful")
-            self._proc = None
         else:
             raise RuntimeError("cleanup FAILED!")
-            
+        try:
+            self.conn_send.close()
+        except OSError:
+            pass
+        log.debug("wait for monitor thread to join")
+        self._monitor_thread.join()      
 
     @staticmethod
-    def _wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, log_queue, sigint, sigterm, name, logging_level):
+    def _wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, log_queue, sigint, sigterm, name, logging_level, conn_send):
         """
             to be executed as a separate process (that's why this functions is declared static)
         """
         prefix = get_identifier(name)+' '
         log = logging.getLogger("log_{}".format(get_identifier(name, bold=False)))
-        log.setLevel(logging.DEBUG)
+        log.setLevel(logging_level)
         try:
             log.addHandler(QueueHandler(log_queue))
         except NameError:
             log.addHandler(def_handl)
+            
+        sys.stdout = StdoutPipe(conn_send)
                   
-        log.warning("enter wrapper_func")            
+        log.debug("enter wrapper_func")            
 
         SIG_handler_Loop(shared_mem_run, sigint, sigterm, log, prefix)
 
@@ -231,26 +250,30 @@ class Loop(object):
                         quit_loop = func(*args)
                     except InterruptedError:
                         raise
-                    except:
-                        err, val, trb = sys.exc_info()
-                        print(ESC_NO_CHAR_ATTR, end='')
-                        sys.stdout.flush()
-                        log.error("error %s occurred in loop alling 'func(*args)'", err)
-                        log.debug("show traceback.print_exc()\n%s", traceback.print_exc())
-                        break
+                    except Exception as e:
+                        log.error("error %s occurred in loop alling 'func(*args)'", type(e))
+                        log.info("show traceback.print_exc()\n%s", traceback.format_exc())
+                        sys.exit(-1)
     
                     if quit_loop is True:
+                        log.debug("loop stooped because func returned True")
                         break
                     
                 time.sleep(interval)
             except InterruptedError:
-                print(ESC_NO_CHAR_ATTR, end='')
-                sys.stdout.flush()
                 log.debug("quit wrapper_func due to InterruptedError")
                 break
 
         log.debug("wrapper_func terminates gracefully")
-
+        
+    def _monitor_stdout_pipe(self):
+        while True:
+            try:
+                b = self.conn_recv.recv()
+                print(b, end='')
+            except EOFError:
+                break
+        
     def start(self):
         """
         uses multiprocess Process to call _wrapper_func in subprocess 
@@ -271,9 +294,15 @@ class Loop(object):
                       "this may resault in incoheerent logging")
             log_queue = None
         name = self.__class__.__name__
+        
+        self.conn_recv, self.conn_send = mp.Pipe(False)
+        self._monitor_thread = threading.Thread(target = self._monitor_stdout_pipe, daemon=True)
+        self._monitor_thread.start()
+        log.debug("started monitor thread")
+        
         self._proc = mp.Process(target = Loop._wrapper_func, 
-                                args = (self.func, self.args, self._run, self._pause, self.interval, 
-                                        log_queue, self._sigint, self._sigterm, name, log.level))
+                                args   = (self.func, self.args, self._run, self._pause, self.interval, 
+                                          log_queue, self._sigint, self._sigterm, name, log.level, self.conn_send))
         self._proc.start()
         log.debug("started a new process with pid %s", self._proc.pid)
         
@@ -285,15 +314,18 @@ class Loop(object):
         the loop from repeating. Call __cleanup to make sure the process
         stopped. After that we could trigger start() again.
         """
-        #self.run = False#
         if self.is_alive():
             self._proc.terminate()
-        else:
-            log.warn("there is no running process to stop")
-            return
+            
+        if self._proc is not None:
+            self.__cleanup()
+                   
+            if self.raise_error:
+                if self._proc.exitcode == 255:
+                    raise LoopExceptionError("the loop function return non zero exticode!\n"+
+                                             "see log (INFO level) for traceback information") 
         
-        self.__cleanup()
-        
+        self._proc = None
         
     def join(self, timeout):
         """
@@ -303,7 +335,7 @@ class Loop(object):
             self._proc.join(timeout)
     
     def is_alive(self):
-        if self._proc == None:
+        if self._proc is None:
             return False
         else:
             return self._proc.is_alive()
@@ -319,7 +351,7 @@ class Loop(object):
             log.debug("process with pid %s resumed", self._proc.pid)
 
     def getpid(self):
-        if self.is_alive():
+        if self._proc is not None:
             return self._proc.pid
         else:
             return None
@@ -1349,28 +1381,10 @@ def humanize_time(secs):
 def len_string_without_ESC(s):
     return len(remove_ESC_SEQ_from_string(s))
 
-
-def printQueue(q, lock=None):
-    if lock is not None:
-        lock.acquire()
-    
-    res = []
-    for i in range(q.qsize()):
-        item = q.get()
-        res.append(copy.deepcopy(item[0]))
-        q.put(item)
-    
-    if lock is not None:
-        lock.release()
-        
-    print(res)
-
-
 def remove_ESC_SEQ_from_string(s):
     for esc_seq in ESC_SEQ_SET:
         s = s.replace(esc_seq, '')
     return s
-
 
 def terminal_reserve(progress_obj, terminal_obj=None, identifier=None):
     """ Registers the terminal (stdout) for printing.
