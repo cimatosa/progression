@@ -19,7 +19,7 @@ from os.path import abspath, dirname, split
 # Add parent directory to beginning of path variable
 sys.path = [split(dirname(abspath(__file__)))[0]] + sys.path
 
-from progress import progress
+import progress
 
 
 # restore python2 compatibility

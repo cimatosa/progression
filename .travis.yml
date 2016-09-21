@@ -15,11 +15,10 @@ before_install:
 install:
 - pip install psutil
 - pip install pytest pytest-cov
-- pip install python-coveralls
 - pip freeze
 
 script:
 - py.test tests/ -v --cov=progress --cov-report term-missing
 
 after_success:
-- coveralls
+- bash <(curl -s https://codecov.io/bash)
