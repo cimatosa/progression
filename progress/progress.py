@@ -219,12 +219,14 @@ class Loop(object):
             to be executed as a separate process (that's why this functions is declared static)
         """
         prefix = get_identifier(name)+' '
-        log = logging.getLogger("log_{}".format(get_identifier(name, bold=False)))
+        global log
+        log = logging.getLogger(__name__+'.'+"log_{}".format(get_identifier(name, bold=False)))
         log.setLevel(logging_level)
-        try:
-            log.addHandler(QueueHandler(log_queue))
-        except NameError:
-            log.addHandler(def_handl)
+
+        # try:
+        #     log.addHandler(QueueHandler(log_queue))
+        # except NameError:
+        #     log.addHandler(def_handl)
             
         sys.stdout = StdoutPipe(conn_send)
                   
@@ -278,14 +280,15 @@ class Loop(object):
             
         self.run = True
 
-        try:
-            log_queue = mp.Queue(-1)
-            listener = QueueListener(log_queue, def_handl)
-            listener.start()
-        except NameError:
-            log.error("QueueListener not available in this python version (need at least 3.2)\n"
-                      "this may resault in incoheerent logging")
-            log_queue = None
+        # try:
+        #     log_queue = mp.Queue(-1)
+        #     listener = QueueListener(log_queue, def_handl)
+        #     listener.start()
+        # except NameError:
+        #     log.error("QueueListener not available in this python version (need at least 3.2)\n"
+        #               "this may resault in incoheerent logging")
+        #     log_queue = None
+        log_queue = None
         name = self.__class__.__name__
         
         self.conn_recv, self.conn_send = mp.Pipe(False)
@@ -1125,7 +1128,7 @@ class SIG_handler_Loop(object):
         self.set_signal(signal.SIGTERM, sigterm)
         self.prefix = prefix
         self.log = log
-        self.log.info("%ssetup signal handler for loop (SIGINT:%s, SIGTERM:%s)", self.prefix, sigint, sigterm)
+        self.log.info("setup signal handler for loop (SIGINT:%s, SIGTERM:%s)", sigint, sigterm)
 
     def set_signal(self, sig, handler_str):
         if handler_str == 'ign':
@@ -1139,7 +1142,7 @@ class SIG_handler_Loop(object):
         pass
 
     def _stop_on_signal(self, signal, frame):
-        self.log.info("%sreceived sig %s -> raise InterruptedError", self.prefix, signal_dict[signal])
+        self.log.info("received sig %s -> raise InterruptedError", signal_dict[signal])
         raise LoopInterruptError()
 
 def ESC_MOVE_LINE_UP(n):
@@ -1165,46 +1168,46 @@ def StringValue(num_of_bytes):
 def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = False):
     proc.join(timeout)
     if not proc.is_alive():
-        log.debug("%stermination of process (pid %s) within timeout of %ss SUCCEEDED!", prefix, proc.pid, timeout)
+        log.debug("termination of process (pid %s) within timeout of %ss SUCCEEDED!", proc.pid, timeout)
         return True
         
     # process still runs -> send SIGTERM -> see what happens
-    log.warning("%stermination of process (pid %s) within given timeout of %ss FAILED!", prefix, proc.pid, timeout)
+    log.warning("termination of process (pid %s) within given timeout of %ss FAILED!", proc.pid, timeout)
  
     proc.terminate()
     new_timeout = 3*timeout
-    log.debug("%swait for termination (timeout %s)", prefix, new_timeout)
+    log.debug("wait for termination (timeout %s)", new_timeout)
     proc.join(new_timeout)
     if not proc.is_alive():
-        log.info("%stermination of process (pid %s) via SIGTERM with timeout of %ss SUCCEEDED!", prefix, proc.pid, new_timeout)
+        log.info("termination of process (pid %s) via SIGTERM with timeout of %ss SUCCEEDED!", proc.pid, new_timeout)
         return True
         
     
-    log.warning("%stermination of process (pid %s) via SIGTERM with timeout of %ss FAILED!", prefix, proc.pid, new_timeout)
+    log.warning("termination of process (pid %s) via SIGTERM with timeout of %ss FAILED!", proc.pid, new_timeout)
 
-    log.debug("%sauto_kill_on_last_resort is %s", prefix, auto_kill_on_last_resort)
+    log.debug("auto_kill_on_last_resort is %s", auto_kill_on_last_resort)
     answer = 'k' if auto_kill_on_last_resort else '_'
     while True:
-        log.debug("%sanswer string is %s", prefix, answer)
+        log.debug("answer string is %s", answer)
         if answer == 'k':
-            log.warning("%ssend SIGKILL to process with pid %s", prefix, proc.pid)
+            log.warning("send SIGKILL to process with pid %s", proc.pid)
             os.kill(proc.pid, signal.SIGKILL)
             time.sleep(0.1)
         else:
-            log.info("%ssend SIGTERM to process with pid %s", prefix, proc.pid)
+            log.info("send SIGTERM to process with pid %s", proc.pid)
             os.kill(proc.pid, signal.SIGTERM)
             time.sleep(0.1)
             
         if not proc.is_alive():
-            log.info("%sprocess (pid %s) has stopped running!", prefix, proc.pid)
+            log.info("process (pid %s) has stopped running!", proc.pid)
             return True
         else:
-            log.warning("%sprocess (pid %s) is still running!", prefix, proc.pid)
+            log.warning("process (pid %s) is still running!", proc.pid)
 
         print("the process (pid %s) seems still running".format(proc.pid))
         answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
         if answer == 'ignore':
-            log.warning("%signore process %s", prefix, proc.pid)
+            log.warning("ignore process %s", proc.pid)
             return False
         elif answer != 'k':
             answer = ''
@@ -1300,10 +1303,13 @@ def humanize_time(secs):
     """
     if secs is None:
         return '--'
-    
-    mins, secs = divmod(secs, 60)
-    hours, mins = divmod(mins, 60)
-    return '{:02d}:{:02d}:{:02d}'.format(int(hours), int(mins), int(secs))
+
+    if secs < 1:
+        return "{:.2f}ms".format(secs*1000)
+    else:
+        mins, secs = divmod(secs, 60)
+        hours, mins = divmod(mins, 60)
+        return '{:02d}:{:02d}:{:02d}'.format(int(hours), int(mins), int(secs))
     
 
 
@@ -1340,16 +1346,16 @@ def terminal_reserve(progress_obj, terminal_obj=None, identifier=None):
 
     
     if terminal_obj in TERMINAL_RESERVATION:    # terminal was already registered
-        log.debug("%sthis terminal %s has already been added to reservation list", identifier, terminal_obj)
+        log.debug("this terminal %s has already been added to reservation list", terminal_obj)
         
         if TERMINAL_RESERVATION[terminal_obj] is progress_obj:
-            log.debug("%swe %s have already reserved this terminal %s", identifier, progress_obj, terminal_obj)
+            log.debug("we %s have already reserved this terminal %s", progress_obj, terminal_obj)
             return True
         else:
-            log.debug("%ssomeone else %s has already reserved this terminal %s", identifier, TERMINAL_RESERVATION[terminal_obj], terminal_obj)
+            log.debug("someone else %s has already reserved this terminal %s", TERMINAL_RESERVATION[terminal_obj], terminal_obj)
             return False
     else:                                       # terminal not yet registered
-        log.debug("%sterminal %s was reserved for us %s", identifier, terminal_obj, progress_obj)
+        log.debug("terminal %s was reserved for us %s", terminal_obj, progress_obj)
         TERMINAL_RESERVATION[terminal_obj] = progress_obj
         return True
 
@@ -1376,13 +1382,13 @@ def terminal_unreserve(progress_obj, terminal_obj=None, verbose=0, identifier=No
     
     po = TERMINAL_RESERVATION.get(terminal_obj)
     if po is None:
-        log.debug("%sterminal %s was not reserved, nothing happens", identifier, terminal_obj)
+        log.debug("terminal %s was not reserved, nothing happens", terminal_obj)
     else:
         if po is progress_obj:
-            log.debug("%sterminal %s now unreserned", identifier, terminal_obj)
+            log.debug("terminal %s now unreserned", terminal_obj)
             del TERMINAL_RESERVATION[terminal_obj]
         else:
-            log.debug("%syou %s can NOT unreserve terminal %s be cause it was reserved by %s", identifier, progress_obj, terminal_obj, po)
+            log.debug("you %s can NOT unreserve terminal %s be cause it was reserved by %s", progress_obj, terminal_obj, po)
 
 
 myQueue = mp.Queue
