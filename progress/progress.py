@@ -37,6 +37,7 @@ class StdoutPipe(object):
 
 class MultiLineFormatter(logging.Formatter):
     def format(self, record):
+        print(record)
         _str = logging.Formatter.format(self, record)
         header = _str.split(record.message)[0]
         _str = _str.replace('\n', '\n' + ' '*len(header))
@@ -122,11 +123,10 @@ class Loop(object):
                  func, 
                  args                     = (),
                  interval                 = 1,
-                 verbose                  = 0,
+                 verbose                  = None,
                  sigint                   = 'stop',
                  sigterm                  = 'stop',
                  auto_kill_on_last_resort = False,
-                 logging_level            = None,
                  raise_error              = True):
         """
         func [callable] - function to be called periodically
@@ -135,10 +135,8 @@ class Loop(object):
         
         intervall [pos number] - time to "sleep" between each call
         
-        verbose [pos integer] / logging_level [pos integer] - specifies the level of verbosity
-          as pythons native logging system is used the meaing of logging_level can be found 
-          in the official docs. If logging_level is None use the old fashion verbose value
-          where the following mapping is applied: 0 -> ligging.ERROR, 1 -> logging.INFO, 2 -> logging.DEBUG  
+        verbose - DEPRECATED, only kept for compatibility, use global log.level to 
+        specify verbosity  
           
         sigint [string] - signal handler string to set SIGINT behavior (see below)
         
@@ -153,16 +151,11 @@ class Loop(object):
             stop: raise InterruptedError which is caught silently.
         """
         self._proc = None
-        # self.old_logging_level = log.level
-        if logging_level is None:
-            if verbose == 0:
-                log.setLevel(logging.ERROR)
-            elif verbose == 1:
-                log.setLevel(logging.INFO)
-            else:
-                log.setLevel(logging.DEBUG)
-        else:
-            log.setLevel(logging_level)
+        
+        if verbose is not None:
+            log.warn("verbose is deprecated, only allowed for compatibility")
+            raise DeprecationWarning("verbose is deprecated")
+        
             
         self.func = func
         self.args = args
