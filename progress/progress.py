@@ -431,6 +431,7 @@ class Progress(Loop):
                  speed_calc_cycles = 10, 
                  interval          = 1, 
                  verbose           = 0,
+                 logging_level     = None,
                  sigint            = 'stop', 
                  sigterm           = 'stop',
                  info_line         = None):
@@ -522,7 +523,7 @@ class Progress(Loop):
         
         # setup loop class with func
         Loop.__init__(self,
-                      func=Progress.show_stat_wrapper_multi,
+                      func = Progress.show_stat_wrapper_multi,
 
                       args = (self.count,
                               self.last_count,
@@ -542,7 +543,8 @@ class Progress(Loop):
                       verbose  = verbose,
                       sigint   = sigint,
                       sigterm  = sigterm,
-                      auto_kill_on_last_resort = True)
+                      auto_kill_on_last_resort = True,
+                      logging_level = logging_level)
 
     def __exit__(self, *exc_args):
         self.stop()
@@ -799,32 +801,12 @@ class ProgressBar(Progress):
     """
     implements a progress bar similar to the one known from 'wget' or 'pv'
     """
-    def __init__(self, 
-                  count, 
-                  max_count=None,
-                  width='auto',
-                  prepend=None,
-                  speed_calc_cycles=10, 
-                  interval=1, 
-                  verbose=0,
-                  sigint='stop', 
-                  sigterm='stop',
-                  info_line=None):
+    def __init__(self, *args, **kwargs):
         """
             width [int/'auto'] - the number of characters used to show the Progress bar,
             use 'auto' to determine width from terminal information -> see _set_width
         """
-        Progress.__init__(self,
-                          count=count,
-                          max_count=max_count,
-                          prepend=prepend,
-                          speed_calc_cycles=speed_calc_cycles,
-                          width=width,
-                          interval=interval,
-                          verbose = verbose,
-                          sigint=sigint,
-                          sigterm=sigterm,
-                          info_line=info_line)
+        Progress.__init__(self, *args, **kwargs)
 
         self._PRE_PREPEND = ESC_NO_CHAR_ATTR + ESC_RED
         self._POST_PREPEND = ESC_BOLD + ESC_GREEN
@@ -880,30 +862,8 @@ class ProgressBarCounter(Progress):
         max_count == None -> absolute count statistic
         max_count == 0 -> hide process statistic at all 
     """
-    def __init__(self, 
-                 count, 
-                 max_count=None,
-                 prepend=None,
-                 speed_calc_cycles_bar=10,
-                 speed_calc_cycles_counter=5,
-                 width='auto', 
-                 interval=1, 
-                 verbose=0,
-                 sigint='stop', 
-                 sigterm='stop',
-                 info_line=None):
-        
-        Progress.__init__(self,
-                          count=count,
-                          max_count=max_count,
-                          prepend=prepend,
-                          speed_calc_cycles=speed_calc_cycles_bar,
-                          width=width,
-                          interval=interval,
-                          verbose = verbose,
-                          sigint=sigint,
-                          sigterm=sigterm,
-                          info_line=info_line)
+    def __init__(self, *args, speed_calc_cycles_counter=5, **kwargs):       
+        Progress.__init__(self, *args, **kwargs)
         
         self.counter_count = []
         self.counter_q = []
@@ -989,35 +949,12 @@ class ProgressBarFancy(Progress):
         implements a progress bar where the color indicates the current status
         similar to the bars known from 'htop'
     """
-    def __init__(self, 
-                  count, 
-                  max_count=None,
-                  width='auto',
-                  prepend=None,
-                  speed_calc_cycles=10, 
-                  interval=1, 
-                  verbose=0,
-                  sigint='stop', 
-                  sigterm='stop',
-                  info_line=None):
+    def __init__(self, *args, **kwargs):
         """
             width [int/'auto'] - the number of characters used to show the Progress bar,
             use 'auto' to determine width from terminal information -> see _set_width
-        """
-        if not self.__class__.__name__ in TERMINAL_PRINT_LOOP_CLASSES:
-            TERMINAL_PRINT_LOOP_CLASSES.append(self.__class__.__name__)
-            
-        Progress.__init__(self,
-                          count=count,
-                          max_count=max_count,
-                          prepend=prepend,
-                          speed_calc_cycles=speed_calc_cycles,
-                          width=width,
-                          interval=interval,
-                          verbose = verbose,
-                          sigint=sigint,
-                          sigterm=sigterm,
-                          info_line=info_line)
+        """            
+        Progress.__init__(self, *args, **kwargs)
         
     @staticmethod        
     def get_d(s1, s2, width, lp, lps):
@@ -1536,4 +1473,4 @@ ESC_SEQ_SET = [ESC_NO_CHAR_ATTR,
 # terminal reservation list, see terminal_reserve
 TERMINAL_RESERVATION = {}
 # these are classes that print progress bars, see terminal_reserve
-TERMINAL_PRINT_LOOP_CLASSES = ["ProgressBar", "ProgressBarCounter"]
+TERMINAL_PRINT_LOOP_CLASSES = ["ProgressBar", "ProgressBarCounter", "ProgressBarFancy", "ProgressBarCounterFancy"]
