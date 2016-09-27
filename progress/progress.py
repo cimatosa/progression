@@ -7,12 +7,12 @@ import copy
 import datetime
 from distutils import version
 import logging
-try:
-    from logging.handlers import QueueHandler
-    from logging.handlers import QueueListener
-except ImportError:
-    warnings.warn("could not load QueueHandler/QueueListener (python version too old\n"+
-                  "no coheerent subprocess logging pissible", ImportWarning)
+# try:
+#     from logging.handlers import QueueHandler
+#     from logging.handlers import QueueListener
+# except ImportError:
+#     warnings.warn("could not load QueueHandler/QueueListener (python version too old\n"+
+#                   "no coheerent subprocess logging pissible", ImportWarning)
 import math
 import multiprocessing as mp
 import threading
