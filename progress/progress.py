@@ -37,7 +37,6 @@ class StdoutPipe(object):
 
 class MultiLineFormatter(logging.Formatter):
     def format(self, record):
-        print(record)
         _str = logging.Formatter.format(self, record)
         header = _str.split(record.message)[0]
         _str = _str.replace('\n', '\n' + ' '*len(header))
@@ -153,9 +152,8 @@ class Loop(object):
         self._proc = None
         
         if verbose is not None:
-            log.warn("verbose is deprecated, only allowed for compatibility")
-            raise DeprecationWarning("verbose is deprecated")
-        
+            log.warning("verbose is deprecated, only allowed for compatibility")
+            warnings.warn("verbose is deprecated", DeprecationWarning)        
             
         self.func = func
         self.args = args
@@ -204,7 +202,6 @@ class Loop(object):
         if check_process_termination(proc                     = self._proc,
                                      timeout                  = 2*self.interval,
                                      prefix                   = '',
-                                     log                      = log,
                                      auto_kill_on_last_resort = self._auto_kill_on_last_resort):
             log.debug("cleanup successful")
         else:
@@ -276,7 +273,7 @@ class Loop(object):
         """
 
         if self.is_alive():
-            log.warn("a process with pid %s is already running", self._proc.pid)
+            log.warning("a process with pid %s is already running", self._proc.pid)
             return
             
         self.run = True
@@ -430,8 +427,7 @@ class Progress(Loop):
                  width             = 'auto',
                  speed_calc_cycles = 10, 
                  interval          = 1, 
-                 verbose           = 0,
-                 logging_level     = None,
+                 verbose           = None,
                  sigint            = 'stop', 
                  sigterm           = 'stop',
                  info_line         = None):
@@ -454,6 +450,10 @@ class Progress(Loop):
         
         verbose, sigint, sigterm -> see loop class  
         """
+        
+        if verbose is not None:
+            log.warning("verbose is deprecated, only allowed for compatibility")
+            warnings.warn("verbose is deprecated", DeprecationWarning)        
 
         try:
             for c in count:
@@ -540,11 +540,9 @@ class Progress(Loop):
                               self.lock,
                               self.info_line),
                       interval = interval,
-                      verbose  = verbose,
                       sigint   = sigint,
                       sigterm  = sigterm,
-                      auto_kill_on_last_resort = True,
-                      logging_level = logging_level)
+                      auto_kill_on_last_resort = True)
 
     def __exit__(self, *exc_args):
         self.stop()
@@ -1164,7 +1162,7 @@ def StringValue(num_of_bytes):
     return mp.Array('c', _jm_compatible_bytearray(num_of_bytes), lock=True)
 
 
-def check_process_termination(proc, prefix, timeout, log, auto_kill_on_last_resort = False):
+def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = False):
     proc.join(timeout)
     if not proc.is_alive():
         log.debug("%stermination of process (pid %s) within timeout of %ss SUCCEEDED!", prefix, proc.pid, timeout)
@@ -1275,7 +1273,6 @@ def get_terminal_size(defaultw=80):
 
     
 def get_terminal_width(default=80, name=None):
-    id = get_identifier(name=name)
     try:
         width = get_terminal_size(defaultw=default)[0]
     except:
