@@ -12,7 +12,7 @@ try:
     from logging.handlers import QueueListener
 except ImportError:
     warnings.warn("could not load QueueHandler/QueueListener (python version too old\n"+
-                  "no coheerent subprocess logging pissible")
+                  "no coheerent subprocess logging pissible", ImportWarning)
 import math
 import multiprocessing as mp
 import threading
@@ -860,8 +860,8 @@ class ProgressBarCounter(Progress):
         max_count == None -> absolute count statistic
         max_count == 0 -> hide process statistic at all 
     """
-    def __init__(self, *args, speed_calc_cycles_counter=5, **kwargs):       
-        Progress.__init__(self, *args, **kwargs)
+    def __init__(self, speed_calc_cycles_counter=5, **kwargs):       
+        Progress.__init__(self, **kwargs)
         
         self.counter_count = []
         self.counter_q = []

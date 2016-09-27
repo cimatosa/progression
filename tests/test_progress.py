@@ -16,6 +16,7 @@ import io
 import warnings
 
 warnings.filterwarnings('error')
+warnings.filterwarnings('always', category=ImportWarning)
 
 
 # setup path to import progress
