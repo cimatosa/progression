@@ -979,43 +979,51 @@ def test_stopping_loop():
                    
     finally:
         _kill_pid(loop.getpid())
+        
+def test_humanize_time():
+    assert progress.humanize_time(0.1234567) == '123.46ms', "{}".format(progress.humanize_time(0.1234567)) 
+    assert progress.humanize_time(5.1234567) == '5.12s', "{}".format(progress.humanize_time(5.1234567))
+    assert progress.humanize_time(123456) == '34:17:36', "{}".format(progress.humanize_time(123456))
+    
+
 
 if __name__ == "__main__":
     func = [    
-    test_catch_subprocess_error,
-    test_prefix_logger,
-    test_loop_basic,
-    test_loop_signals,
-    test_loop_logging,
-    test_loop_normal_stop,
-    test_loop_stdout_pipe,
-    test_loop_pause,
-    test_loop_need_sigterm_to_stop,
-    test_loop_need_sigkill_to_stop,
-    test_why_with_statement,
-    test_progress_bar,
-    test_progress_bar_with_statement,
-    test_progress_bar_multi,
-    test_status_counter,
-    test_status_counter_multi,
-    test_intermediate_prints_while_running_progess_bar,
-    test_intermediate_prints_while_running_progess_bar_multi,
-    test_progress_bar_counter,
-    test_progress_bar_counter_non_max,
-    test_progress_bar_counter_hide_bar,
-    test_progress_bar_slow_change,
-    test_progress_bar_start_stop,
-    test_progress_bar_fancy,
-    test_progress_bar_multi_fancy,
-    test_progress_bar_fancy_small,
-    test_progress_bar_counter_fancy,
-    test_progress_bar_counter_fancy_non_max,
-    test_progress_bar_counter_fancy_hide_bar,
-    test_info_line,
-    test_change_prepend,
-    test_stop_progress_with_large_interval,
-    test_get_identifier,
-    test_stopping_loop,
+    test_humanize_time,
+#     test_catch_subprocess_error,
+#     test_prefix_logger,
+#     test_loop_basic,
+#     test_loop_signals,
+#     test_loop_logging,
+#     test_loop_normal_stop,
+#     test_loop_stdout_pipe,
+#     test_loop_pause,
+#     test_loop_need_sigterm_to_stop,
+#     test_loop_need_sigkill_to_stop,
+#     test_why_with_statement,
+#     test_progress_bar,
+#     test_progress_bar_with_statement,
+#     test_progress_bar_multi,
+#     test_status_counter,
+#     test_status_counter_multi,
+#     test_intermediate_prints_while_running_progess_bar,
+#     test_intermediate_prints_while_running_progess_bar_multi,
+#     test_progress_bar_counter,
+#     test_progress_bar_counter_non_max,
+#     test_progress_bar_counter_hide_bar,
+#     test_progress_bar_slow_change,
+#     test_progress_bar_start_stop,
+#     test_progress_bar_fancy,
+#     test_progress_bar_multi_fancy,
+#     test_progress_bar_fancy_small,
+#     test_progress_bar_counter_fancy,
+#     test_progress_bar_counter_fancy_non_max,
+#     test_progress_bar_counter_fancy_hide_bar,
+#     test_info_line,
+#     test_change_prepend,
+#     test_stop_progress_with_large_interval,
+#     test_get_identifier,
+#     test_stopping_loop,
     lambda: print("END")
     ]
     
