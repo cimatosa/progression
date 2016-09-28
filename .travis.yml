@@ -3,6 +3,10 @@ language: python
 notifications:
   email: false
 
+branches:
+  only:
+  - master
+
 python:
 - '2.7'
 - '3.4'
