@@ -1205,8 +1205,19 @@ def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = 
         else:
             log.warning("process (pid %s) is still running!", proc.pid)
 
+<<<<<<< Updated upstream
         print("the process (pid {}) seems still running".format(proc.pid))
         answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
+=======
+        print("the process (pid %s) seems still running".format(proc.pid))
+        try:
+            answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
+        except Exception as e:
+            log.error("could not ask for sending SIGKILL due to {}".format(type(e)))
+            log.info(traceback.format_exc())
+            log.warning("send SIGKILL now")
+            answer = 'k'
+>>>>>>> Stashed changes
         if answer == 'ignore':
             log.warning("ignore process %s", proc.pid)
             return False
