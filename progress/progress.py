@@ -260,6 +260,7 @@ class Loop(object):
                 break
 
         log.debug("wrapper_func terminates gracefully")
+#         sys.exit(0)
         
     def _monitor_stdout_pipe(self):
         while True:
@@ -1204,7 +1205,7 @@ def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = 
         else:
             log.warning("process (pid %s) is still running!", proc.pid)
 
-        print("the process (pid %s) seems still running".format(proc.pid))
+        print("the process (pid {}) seems still running".format(proc.pid))
         answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
         if answer == 'ignore':
             log.warning("ignore process %s", proc.pid)
@@ -1391,6 +1392,9 @@ def terminal_unreserve(progress_obj, terminal_obj=None, verbose=0, identifier=No
             del TERMINAL_RESERVATION[terminal_obj]
         else:
             log.debug("you %s can NOT unreserve terminal %s be cause it was reserved by %s", progress_obj, terminal_obj, po)
+            
+def codecov_subprocess_check():
+    print("this line will be only called from a subprocess")
 
 
 myQueue = mp.Queue

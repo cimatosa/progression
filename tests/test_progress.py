@@ -985,11 +985,70 @@ def test_humanize_time():
     assert progress.humanize_time(5.1234567) == '5.12s', "{}".format(progress.humanize_time(5.1234567))
     assert progress.humanize_time(123456) == '34:17:36', "{}".format(progress.humanize_time(123456))
     
+def test_wrapper_termination():
+    progress.log.setLevel(logging.DEBUG)
+    
+    shared_pid = progress.UnsignedIntValue()
+    
+    def f(shared_pid):
+        class Signal_to_sys_exit(object):
+            def __init__(self, signals=[signal.SIGINT, signal.SIGTERM]):
+                for s in signals:
+                    signal.signal(s, self._handler)
+            def _handler(self, signal, frame):
+                print("PID {}: received signal {} -> call sys.exit -> raise SystemExit".format(os.getpid(), progress.signal_dict[signal]))
+                sys.exit('exit due to signal {}'.format(progress.signal_dict[signal]))
+        
+        Signal_to_sys_exit()
+        
+            
+        def loopf(shared_pid):
+            shared_pid.value = os.getpid()
+            print(time.clock())
+            
+        with progress.Loop(func = loopf, args = (shared_pid,), sigint='ign', sigterm='ign', interval=0.3) as l:
+            l.start()
+            while True:
+                time.sleep(1)
+    
 
+    p = mp.Process(target = f, args = (shared_pid, ))
+    p.start()
+    time.sleep(2)
+    p.terminate()
+    p.join(5)
+    
+    pid = shared_pid.value 
+    
+    if pid != 0:
+        if psutil.pid_exists(pid):
+            p = psutil.Process(pid)
+            while p.is_running():
+                print("pid {} is still running, sigkill".format(pid))
+                p.send_signal(signal.SIGKILL)
+                time.sleep(0.1)
+                
+            print("pid {} has stopped now".format(pid))    
+            assert False, "the loop process was still running!"
+            
+def test_codecov_subprocess_test():
+    """
+        it turns out that this line is accounted for by pytest-cov (2.7, 3.4)   
+    """
+    def f():
+        progress.codecov_subprocess_check()
+        
+    p = mp.Process(target = f)
+    p.start()
+    p.join(1)
+    if p.is_alive():
+        p.terminate()    
 
 if __name__ == "__main__":
     func = [    
-    test_humanize_time,
+#     test_humanize_time,
+    test_codecov_subprocess_test,
+#     test_wrapper_termination,
 #     test_catch_subprocess_error,
 #     test_prefix_logger,
 #     test_loop_basic,
