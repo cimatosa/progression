@@ -260,7 +260,6 @@ class Loop(object):
                 break
 
         log.debug("wrapper_func terminates gracefully")
-#         sys.exit(0)
         
     def _monitor_stdout_pipe(self):
         while True:
@@ -779,7 +778,7 @@ class Progress(Loop):
         super(Progress, self).start()
         self.show_on_exit = True
 
-    def stop(self, make_sure_its_down = False):
+    def stop(self):
         """
             trigger clean up by hand, needs to be done when not using
             context management via 'with' statement
@@ -788,8 +787,6 @@ class Progress(Loop):
             - show a last progress -> see the full 100% on exit
             - releases terminal reservation
         """
-        self._auto_kill_on_last_resort = make_sure_its_down 
-            
         super(Progress, self).stop()
         terminal_unreserve(progress_obj=self, verbose=self.verbose)
 
@@ -1205,10 +1202,6 @@ def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = 
         else:
             log.warning("process (pid %s) is still running!", proc.pid)
 
-<<<<<<< Updated upstream
-        print("the process (pid {}) seems still running".format(proc.pid))
-        answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
-=======
         print("the process (pid %s) seems still running".format(proc.pid))
         try:
             answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
@@ -1217,7 +1210,7 @@ def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = 
             log.info(traceback.format_exc())
             log.warning("send SIGKILL now")
             answer = 'k'
->>>>>>> Stashed changes
+
         if answer == 'ignore':
             log.warning("ignore process %s", proc.pid)
             return False
