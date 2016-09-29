@@ -10,7 +10,7 @@ author      = u"Richard Hartmann"
 authors     = [author]
 description = 'A python progress bar in ascii art.'
 name        = 'progression'
-version     = '0.1.0'
+version     = '0.1.1'
 
 if __name__ == "__main__":
     setup(
