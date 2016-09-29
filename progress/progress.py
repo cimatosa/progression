@@ -88,8 +88,7 @@ def get_identifier(name=None, pid=None, bold=True):
     if name is None:
         return "{}PID {}{}".format(esc_bold, pid, esc_no_char_attr)
     else:
-        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)
-    
+        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)    
 
 class Loop(object):
     """
@@ -1217,22 +1216,21 @@ def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = 
         elif answer != 'k':
             answer = ''
 
-
-def get_identifier(name=None, pid=None, bold=True):
-    if pid == None:
-        pid = os.getpid()
-        
-    if bold:
-        esc_bold = ESC_BOLD
-        esc_no_char_attr = ESC_NO_CHAR_ATTR
-    else:
-        esc_bold = ""
-        esc_no_char_attr = ""
+def getCountKwargs(func):
+    """ Returns a list ["count kwarg", "count_max kwarg"] for a
+    given function. Valid combinations are defined in 
+    `progress.validCountKwargs`.
     
-    if name == None:
-        return "{}PID {}{}".format(esc_bold, pid, esc_no_char_attr) 
-    else:
-        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)
+    Returns None if no keyword arguments are found.
+    """
+    # Get all arguments of the function
+    if hasattr(func, "__code__"):
+        func_args = func.__code__.co_varnames[:func.__code__.co_argcount]
+        for pair in validCountKwargs:
+            if ( pair[0] in func_args and pair[1] in func_args ):
+                return pair
+    # else
+    return None
 
 
 def get_terminal_size(defaultw=80):
@@ -1487,3 +1485,11 @@ ESC_SEQ_SET = [ESC_NO_CHAR_ATTR,
 TERMINAL_RESERVATION = {}
 # these are classes that print progress bars, see terminal_reserve
 TERMINAL_PRINT_LOOP_CLASSES = ["ProgressBar", "ProgressBarCounter", "ProgressBarFancy", "ProgressBarCounterFancy"]
+
+# keyword arguments that define counting in wrapped functions
+validCountKwargs = [
+                    [ "count", "count_max"],
+                    [ "count", "max_count"],
+                    [ "c", "m"],
+                    [ "jmc", "jmm"],
+                   ]
