@@ -6,18 +6,18 @@
 from setuptools import setup
 
 
-author = u"Richard Hartmann"
-authors = [author]
+author      = u"Richard Hartmann"
+authors     = [author]
 description = 'A python progress bar in ascii art.'
-name = 'progress'
-version = '0.1'
+name        = 'progression'
+version     = '0.1.0'
 
 if __name__ == "__main__":
     setup(
         name=name,
         author=author,
         author_email='richard.hartmann@tu-dresden.de',
-        url='https://github.com/cimatosa/progress',
+        url='https://github.com/cimatosa/progression',
         version=version,
         packages=[name],
         package_dir={name: name},
