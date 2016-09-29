@@ -88,8 +88,7 @@ def get_identifier(name=None, pid=None, bold=True):
     if name is None:
         return "{}PID {}{}".format(esc_bold, pid, esc_no_char_attr)
     else:
-        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)
-    
+        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)    
 
 class Loop(object):
     """
@@ -778,7 +777,7 @@ class Progress(Loop):
         super(Progress, self).start()
         self.show_on_exit = True
 
-    def stop(self, make_sure_its_down = False):
+    def stop(self):
         """
             trigger clean up by hand, needs to be done when not using
             context management via 'with' statement
@@ -787,8 +786,6 @@ class Progress(Loop):
             - show a last progress -> see the full 100% on exit
             - releases terminal reservation
         """
-        self._auto_kill_on_last_resort = make_sure_its_down 
-            
         super(Progress, self).stop()
         terminal_unreserve(progress_obj=self, verbose=self.verbose)
 
@@ -1205,29 +1202,35 @@ def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = 
             log.warning("process (pid %s) is still running!", proc.pid)
 
         print("the process (pid %s) seems still running".format(proc.pid))
-        answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
+        try:
+            answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
+        except Exception as e:
+            log.error("could not ask for sending SIGKILL due to {}".format(type(e)))
+            log.info(traceback.format_exc())
+            log.warning("send SIGKILL now")
+            answer = 'k'
+
         if answer == 'ignore':
             log.warning("ignore process %s", proc.pid)
             return False
         elif answer != 'k':
             answer = ''
 
-
-def get_identifier(name=None, pid=None, bold=True):
-    if pid == None:
-        pid = os.getpid()
-        
-    if bold:
-        esc_bold = ESC_BOLD
-        esc_no_char_attr = ESC_NO_CHAR_ATTR
-    else:
-        esc_bold = ""
-        esc_no_char_attr = ""
+def getCountKwargs(func):
+    """ Returns a list ["count kwarg", "count_max kwarg"] for a
+    given function. Valid combinations are defined in 
+    `progress.validCountKwargs`.
     
-    if name == None:
-        return "{}PID {}{}".format(esc_bold, pid, esc_no_char_attr) 
-    else:
-        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)
+    Returns None if no keyword arguments are found.
+    """
+    # Get all arguments of the function
+    if hasattr(func, "__code__"):
+        func_args = func.__code__.co_varnames[:func.__code__.co_argcount]
+        for pair in validCountKwargs:
+            if ( pair[0] in func_args and pair[1] in func_args ):
+                return pair
+    # else
+    return None
 
 
 def get_terminal_size(defaultw=80):
@@ -1391,6 +1394,9 @@ def terminal_unreserve(progress_obj, terminal_obj=None, verbose=0, identifier=No
             del TERMINAL_RESERVATION[terminal_obj]
         else:
             log.debug("you %s can NOT unreserve terminal %s be cause it was reserved by %s", progress_obj, terminal_obj, po)
+            
+def codecov_subprocess_check():
+    print("this line will be only called from a subprocess")
 
 
 myQueue = mp.Queue
@@ -1479,3 +1485,11 @@ ESC_SEQ_SET = [ESC_NO_CHAR_ATTR,
 TERMINAL_RESERVATION = {}
 # these are classes that print progress bars, see terminal_reserve
 TERMINAL_PRINT_LOOP_CLASSES = ["ProgressBar", "ProgressBarCounter", "ProgressBarFancy", "ProgressBarCounterFancy"]
+
+# keyword arguments that define counting in wrapped functions
+validCountKwargs = [
+                    [ "count", "count_max"],
+                    [ "count", "max_count"],
+                    [ "c", "m"],
+                    [ "jmc", "jmm"],
+                   ]
