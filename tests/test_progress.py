@@ -710,7 +710,7 @@ def test_progress_bar_start_stop():
                 time.sleep(INTERVAL/10)
                 count.value = i+1
                 if i == 10:
-                    sbm.stop(make_sure_its_down = True)
+                    sbm.stop()
                     print("this will not overwrite the progressbar, because we stopped it explicitly")
                     sbm.start()
             print("this WILL overwrite the progressbar, because we are still inside it's context (still running)")            
