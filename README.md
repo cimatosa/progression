@@ -86,7 +86,8 @@ with progression.ProgressBarCounterFancy(count     = count,
     for x in range(400):
         i = random.randint(0, n-1)
         with count[i].get_lock():            # as += operator is not atomic we need a lock
-            count[i].value += 1              # see docs.python.org -> multiprocessing -> shared-ctypes-objects
+            count[i].value += 1              # see docs.python.org -> multiprocessing 
+                                             # -> shared-ctypes-objects
         if count[i].value > max_count_value: # once the max value is reached
             sbm.reset(i)                     # reset the bar, increment counter
                                              # and start over
