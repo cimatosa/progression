@@ -11,6 +11,7 @@ python:
 - '2.7'
 - '3.4'
 - '3.5'
+- '3.6'
 
 before_install:
 - which python
@@ -22,7 +23,7 @@ install:
 - pip freeze
 
 script:
-- py.test tests/ -v --cov=progress --cov-report term-missing
+- py.test tests/ -v --cov=progression --cov-report term-missing
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)
