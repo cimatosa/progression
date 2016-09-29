@@ -10,8 +10,8 @@ from os.path import abspath, dirname, split
 # Add parent directory to beginning of path variable
 sys.path = [split(dirname(abspath(__file__)))[0]] + sys.path
 
-import progress
-from progress import decorators
+import progression
+from progression import decorators
 
 import warnings
 warnings.filterwarnings('error')
@@ -21,8 +21,8 @@ warnings.filterwarnings('error')
 @decorators.ProgressBar
 def _my_func_1(arg, 
                 kwarg     = "1", 
-                count     = decorators.progress.UnsignedIntValue(val=0), 
-                max_count = decorators.progress.UnsignedIntValue(val=1),
+                count     = progression.UnsignedIntValue(val=0), 
+                max_count = progression.UnsignedIntValue(val=1),
                 sleep     = 0.01):
     maxval = 50
     max_count.value = maxval
@@ -35,8 +35,8 @@ def _my_func_1(arg,
 
 
 def _my_func_2(arg, 
-                c     = decorators.progress.UnsignedIntValue(val=0), 
-                m     = decorators.progress.UnsignedIntValue(val=1), 
+                c     = progression.UnsignedIntValue(val=0), 
+                m     = progression.UnsignedIntValue(val=1), 
                 kwarg = "2"):
     maxval = 50
     m.value += maxval
@@ -69,11 +69,11 @@ def my_func_ProgressBarOverrideCount(c = None, m = None):
 
 @decorators.ProgressBar
 def _testing_decorated_func_calls_decorated_func(
-                c     = decorators.progress.UnsignedIntValue(val=0), 
-                m     = decorators.progress.UnsignedIntValue(val=1),
+                c     = progression.UnsignedIntValue(val=0), 
+                m     = progression.UnsignedIntValue(val=1),
                                 ):
     """ This function calls a function that has been decorated with
-        a progress bar. Only the progressbar of this function here is
+        a progression bar. Only the progressbar of this function here is
         displayed.
     """
     maxval = 3
@@ -91,8 +91,8 @@ def test_decorated_func_calls_decorated_func():
     _testing_decorated_func_calls_decorated_func()
 
 def test_decorator():
-    c = progress.UnsignedIntValue(val=0)
-    m = progress.UnsignedIntValue(val=100)
+    c = progression.UnsignedIntValue(val=0)
+    m = progression.UnsignedIntValue(val=100)
     my_func(c=c, m=m)
     my_func(c, m)
 
@@ -110,8 +110,8 @@ def test_extended_PB_get_access_to_progress_bar():
         
         print("let me show you something")
         
-    c = progress.UnsignedIntValue(val=0)
-    m = progress.UnsignedIntValue(val=20)
+    c = progression.UnsignedIntValue(val=0)
+    m = progression.UnsignedIntValue(val=20)
     
     print("call decorated func")
     my_func_dec = decorators.ProgressBarExtended(my_func)
@@ -122,8 +122,8 @@ def test_extended_PB_get_access_to_progress_bar():
 
 
 def test_extended_PB_progress_bar_off():
-    c = progress.UnsignedIntValue(val=0)
-    m = progress.UnsignedIntValue(val=20)
+    c = progression.UnsignedIntValue(val=0)
+    m = progression.UnsignedIntValue(val=20)
     
     @decorators.ProgressBarExtended
     def my_func_kwargs(c, m, **kwargs):

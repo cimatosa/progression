@@ -19,12 +19,12 @@ warnings.filterwarnings('error')
 # warnings.filterwarnings('always', category=ImportWarning)
 
 
-# setup path to import progress
+# setup path to import progression
 from os.path import abspath, dirname, split
 # Add parent directory to beginning of path variable
 sys.path = [split(dirname(abspath(__file__)))[0]] + sys.path
 
-import progress
+import progression
 
 
 # restore python2 compatibility
@@ -52,11 +52,11 @@ INTERVAL = 0.2
 def test_prefix_logger():
     pl = logging.getLogger('new log')
     pl.setLevel(logging.DEBUG)
-    pl.addHandler(progress.def_handl)
+    pl.addHandler(progression.def_handl)
 
     time.sleep(0.1)
     
-    pl.debug("{}this is an debug log{}".format(progress.ESC_BOLD, progress.ESC_NO_CHAR_ATTR))
+    pl.debug("{}this is an debug log{}".format(progression.ESC_BOLD, progression.ESC_NO_CHAR_ATTR))
     pl.info("this is an info %s log %s", 'a', 'b')
     pl.warning("this is an warning log")
     pl.error("this is an error log")
@@ -76,7 +76,7 @@ def test_loop_basic():
     """
     f = lambda: print("        I'm process {}".format(os.getpid()))
     try:
-        loop = progress.Loop(func=f, interval=INTERVAL)
+        loop = progression.Loop(func=f, interval=INTERVAL)
         loop.start()
         
         time.sleep(0.5*INTERVAL)
@@ -95,7 +95,7 @@ def test_loop_basic():
 def test_loop_signals():
     f = lambda: print("        I'm process {}".format(os.getpid()))
     try:
-        loop = progress.Loop(func=f, interval=INTERVAL, sigint='stop', sigterm='stop')
+        loop = progression.Loop(func=f, interval=INTERVAL, sigint='stop', sigterm='stop')
         
         print("## stop on SIGINT ##")
         loop.start()
@@ -120,7 +120,7 @@ def test_loop_signals():
         print("[+] loop stopped running")
         
         print("## ignore SIGINT ##")
-        loop = progress.Loop(func=f, interval=INTERVAL, sigint='ign', sigterm='ign')
+        loop = progression.Loop(func=f, interval=INTERVAL, sigint='ign', sigterm='ign')
     
         loop.start()
         time.sleep(0.5*INTERVAL)
@@ -171,7 +171,7 @@ def long_sleep_function():
     
 def test_loop_normal_stop():
     try:
-        with progress.Loop(func     = normal_function,
+        with progression.Loop(func     = normal_function,
                            interval = INTERVAL) as loop:
             loop.start()
             time.sleep(0.5*INTERVAL)
@@ -192,7 +192,7 @@ def test_loop_stdout_pipe():
     test_string = "test out öäüß"
     
     try:
-        with progress.Loop(func     = lambda: print(test_string),
+        with progression.Loop(func     = lambda: print(test_string),
                            interval = INTERVAL) as loop:
             loop.start()
             time.sleep(0.2*INTERVAL)
@@ -214,7 +214,7 @@ def test_loop_pause():
     sys.stdout = myout
     
     try:
-        with progress.Loop(func     = normal_function,
+        with progression.Loop(func     = normal_function,
                            interval = INTERVAL) as loop:
             loop.start()
             time.sleep(0.2*INTERVAL)
@@ -238,11 +238,11 @@ def test_loop_pause():
            
 def test_loop_logging():   
     my_err = io.StringIO()
-    progress.def_handl.stream = my_err
+    progression.def_handl.stream = my_err
                 
     try:
-        progress.log.setLevel(logging.ERROR)
-        with progress.Loop(func          = normal_function,
+        progression.log.setLevel(logging.ERROR)
+        with progression.Loop(func          = normal_function,
                            interval      = INTERVAL) as loop:
             loop.start()
             time.sleep(0.5*INTERVAL)
@@ -254,17 +254,17 @@ def test_loop_logging():
         print("[+] normal loop stopped")
     finally:
         _kill_pid(loop.getpid())
-        progress.log.setLevel(logging.DEBUG)
+        progression.log.setLevel(logging.DEBUG)
             
     s = my_err.getvalue()
     print(s)
     assert len(s) == 0 
     
-    progress.def_handl.stream = sys.stderr
+    progression.def_handl.stream = sys.stderr
     
 def test_loop_need_sigterm_to_stop():
     try:
-        with progress.Loop(func    = long_sleep_function, 
+        with progression.Loop(func    = long_sleep_function, 
                            interval = INTERVAL) as loop:
             loop.start()
             time.sleep(0.5*INTERVAL)
@@ -278,7 +278,7 @@ def test_loop_need_sigterm_to_stop():
     
 def test_loop_need_sigkill_to_stop():
     try:
-        with progress.Loop(func                     = non_stopping_function, 
+        with progression.Loop(func                     = non_stopping_function, 
                            interval                 = INTERVAL,
                            auto_kill_on_last_resort = True) as loop:
             loop.start()
@@ -295,7 +295,7 @@ def test_why_with_statement():
     """
         here we demonstrate why you should use the with statement
     """
-    class ErrorLoop(progress.Loop):
+    class ErrorLoop(progression.Loop):
         def raise_runtimeError(self):
             raise RuntimeError("on purpose error")
     v=2
@@ -327,7 +327,7 @@ def test_why_with_statement():
     print("## start without with statement ...")
     
     # the pid of the loop process, which is spawned inside 't'
-    subproc_pid = progress.UnsignedIntValue()
+    subproc_pid = progression.UnsignedIntValue()
     
     p = mp.Process(target=t, args=(subproc_pid, ))
     p.start()
@@ -385,10 +385,10 @@ def test_progress_bar():
     """
     deprecated, due to missing with
     """
-    count = progress.UnsignedIntValue()
-    max_count = progress.UnsignedIntValue(100)
+    count = progression.UnsignedIntValue()
+    max_count = progression.UnsignedIntValue(100)
     try:
-        sb = progress.ProgressBar(count, max_count, interval = INTERVAL)
+        sb = progression.ProgressBar(count, max_count, interval = INTERVAL)
         assert not sb.is_alive()
         
         sb.start()
@@ -412,11 +412,11 @@ def test_progress_bar():
         _kill_pid(sb.getpid())        
     
 def test_progress_bar_with_statement():
-    print("TERMINAL_RESERVATION", progress.TERMINAL_RESERVATION)
-    count = progress.UnsignedIntValue()
-    max_count = progress.UnsignedIntValue(100)
+    print("TERMINAL_RESERVATION", progression.TERMINAL_RESERVATION)
+    count = progression.UnsignedIntValue()
+    max_count = progression.UnsignedIntValue(100)
     try:
-        with progress.ProgressBar(count, max_count, interval = INTERVAL) as sb:
+        with progression.ProgressBar(count, max_count, interval = INTERVAL) as sb:
             assert not sb.is_alive()
         
             sb.start()
@@ -437,7 +437,7 @@ def test_progress_bar_with_statement():
         _kill_pid(sb.getpid())           
     
 def test_progress_bar_multi():
-    print("TERMINAL_RESERVATION", progress.TERMINAL_RESERVATION)
+    print("TERMINAL_RESERVATION", progression.TERMINAL_RESERVATION)
     n = 4
     max_count_value = 100
     
@@ -445,11 +445,11 @@ def test_progress_bar_multi():
     max_count = []
     prepend = []
     for i in range(n):
-        count.append(progress.UnsignedIntValue(0))
-        max_count.append(progress.UnsignedIntValue(max_count_value))
+        count.append(progression.UnsignedIntValue(0))
+        max_count.append(progression.UnsignedIntValue(max_count_value))
         prepend.append('_{}_: '.format(i))
     try:
-        with progress.ProgressBar(count=count,
+        with progression.ProgressBar(count=count,
                                   max_count=max_count,
                                   interval=INTERVAL,
                                   speed_calc_cycles=10,
@@ -474,10 +474,10 @@ def test_progress_bar_multi():
         
            
 def test_status_counter():
-    c = progress.UnsignedIntValue(val=0)
+    c = progression.UnsignedIntValue(val=0)
     m = None
     try:
-        with progress.ProgressBar(count=c,
+        with progression.ProgressBar(count=c,
                                   max_count=m,
                                   interval=INTERVAL,
                                   speed_calc_cycles=100,
@@ -499,13 +499,13 @@ def test_status_counter():
                   
             
 def test_status_counter_multi():
-    c1 = progress.UnsignedIntValue(val=0)
-    c2 = progress.UnsignedIntValue(val=0)
+    c1 = progression.UnsignedIntValue(val=0)
+    c2 = progression.UnsignedIntValue(val=0)
     
     c = [c1, c2]
     prepend = ['c1: ', 'c2: ']
     try:
-        with progress.ProgressBar(count=c, prepend=prepend, interval=INTERVAL) as sc:
+        with progression.ProgressBar(count=c, prepend=prepend, interval=INTERVAL) as sc:
             sc.start()
             while True:
                 i = np.random.randint(0,2)
@@ -521,9 +521,9 @@ def test_status_counter_multi():
                    
             
 def test_intermediate_prints_while_running_progess_bar():
-    c = progress.UnsignedIntValue(val=0)
+    c = progression.UnsignedIntValue(val=0)
     try:
-        with progress.ProgressBar(count=c, interval=INTERVAL) as sc:
+        with progression.ProgressBar(count=c, interval=INTERVAL) as sc:
             sc.start()
             while True:
                 with c.get_lock():
@@ -547,12 +547,12 @@ def test_intermediate_prints_while_running_progess_bar():
             
             
 def test_intermediate_prints_while_running_progess_bar_multi():
-    c1 = progress.UnsignedIntValue(val=0)
-    c2 = progress.UnsignedIntValue(val=0)
+    c1 = progression.UnsignedIntValue(val=0)
+    c2 = progression.UnsignedIntValue(val=0)
     
     c = [c1,c2]
     try:
-        with progress.ProgressBar(count=c, interval=INTERVAL) as sc:
+        with progression.ProgressBar(count=c, interval=INTERVAL) as sc:
             sc.start()
             while True:
                 i = np.random.randint(0,2)
@@ -573,12 +573,12 @@ def test_intermediate_prints_while_running_progess_bar_multi():
                    
     
 def test_progress_bar_counter():
-    c1 = progress.UnsignedIntValue(val=0)
-    c2 = progress.UnsignedIntValue(val=0)
+    c1 = progression.UnsignedIntValue(val=0)
+    c2 = progression.UnsignedIntValue(val=0)
     
     maxc = 10
-    m1 = progress.UnsignedIntValue(val=maxc)
-    m2 = progress.UnsignedIntValue(val=maxc)
+    m1 = progression.UnsignedIntValue(val=maxc)
+    m2 = progression.UnsignedIntValue(val=maxc)
     
     c = [c1, c2]
     m = [m1, m2]
@@ -588,7 +588,7 @@ def test_progress_bar_counter():
     pp = ['a ', 'b ']
     
     try:
-        with progress.ProgressBarCounter(count=c, max_count=m, interval=INTERVAL, prepend = pp) as sc:
+        with progression.ProgressBarCounter(count=c, max_count=m, interval=INTERVAL, prepend = pp) as sc:
             sc.start()
             while True:
                 i = np.random.randint(0,2)
@@ -605,15 +605,15 @@ def test_progress_bar_counter():
                    
 
 def test_progress_bar_counter_non_max():
-    c1 = progress.UnsignedIntValue(val=0)
-    c2 = progress.UnsignedIntValue(val=0)
+    c1 = progression.UnsignedIntValue(val=0)
+    c2 = progression.UnsignedIntValue(val=0)
     
     c = [c1, c2]
     maxc = 10
     t0 = time.time()
     
     try:
-        with progress.ProgressBarCounter(count=c, interval=INTERVAL) as sc:
+        with progression.ProgressBarCounter(count=c, interval=INTERVAL) as sc:
             sc.start()
             while True:
                 i = np.random.randint(0,2)
@@ -630,10 +630,10 @@ def test_progress_bar_counter_non_max():
                    
             
 def test_progress_bar_counter_hide_bar():
-    c1 = progress.UnsignedIntValue(val=0)
-    c2 = progress.UnsignedIntValue(val=0)
+    c1 = progression.UnsignedIntValue(val=0)
+    c2 = progression.UnsignedIntValue(val=0)
     
-    m1 = progress.UnsignedIntValue(val=0)
+    m1 = progression.UnsignedIntValue(val=0)
     
     c = [c1, c2]
     m = [m1, m1]
@@ -641,7 +641,7 @@ def test_progress_bar_counter_hide_bar():
     t0 = time.time()
     
     try:
-        with progress.ProgressBarCounter(count=c, max_count=m, interval=INTERVAL) as sc:
+        with progression.ProgressBarCounter(count=c, max_count=m, interval=INTERVAL) as sc:
             sc.start()
             while True:
                 i = np.random.randint(0,2)
@@ -660,11 +660,11 @@ def test_progress_bar_counter_hide_bar():
 def test_progress_bar_slow_change():   
     max_count_value = 5
     
-    count = progress.UnsignedIntValue(0)
-    max_count = progress.UnsignedIntValue(max_count_value)
+    count = progression.UnsignedIntValue(0)
+    max_count = progression.UnsignedIntValue(max_count_value)
     
     try:
-        with progress.ProgressBar(count=count,
+        with progression.ProgressBar(count=count,
                                   max_count=max_count,
                                   interval=0.7,
                                   speed_calc_cycles=5) as sbm:
@@ -679,7 +679,7 @@ def test_progress_bar_slow_change():
 
     try:
         count.value = 0
-        with progress.ProgressBarFancy(count=count,
+        with progression.ProgressBarFancy(count=count,
                                   max_count=max_count,
                                   interval=0.7,
                                   speed_calc_cycles=15) as sbm:
@@ -696,10 +696,10 @@ def test_progress_bar_slow_change():
 def test_progress_bar_start_stop():
     max_count_value = 20
     
-    count = progress.UnsignedIntValue(0)
-    max_count = progress.UnsignedIntValue(max_count_value)
+    count = progression.UnsignedIntValue(0)
+    max_count = progression.UnsignedIntValue(max_count_value)
     try:
-        with progress.ProgressBar(count=count,
+        with progression.ProgressBar(count=count,
                                   max_count=max_count,
                                   interval=INTERVAL,
                                   speed_calc_cycles=5) as sbm:
@@ -719,9 +719,9 @@ def test_progress_bar_start_stop():
    
 
     print()
-    print("create a progress bar, but do not start")
+    print("create a progression bar, but do not start")
     try:
-        with progress.ProgressBar(count=count,
+        with progression.ProgressBar(count=count,
                                   max_count=max_count,
                                   interval=INTERVAL,
                                   speed_calc_cycles=5) as sbm:
@@ -729,13 +729,13 @@ def test_progress_bar_start_stop():
     finally:
         _kill_pid(sbm.getpid())
            
-    print("this is after progress.__exit__, there should be no prints from the progress")
+    print("this is after progression.__exit__, there should be no prints from the progression")
             
 def test_progress_bar_fancy():
-    count = progress.UnsignedIntValue()
-    max_count = progress.UnsignedIntValue(100)
+    count = progression.UnsignedIntValue()
+    max_count = progression.UnsignedIntValue(100)
     try:
-        with progress.ProgressBarFancy(count, max_count, interval=INTERVAL, width='auto') as sb:
+        with progression.ProgressBarFancy(count, max_count, interval=INTERVAL, width='auto') as sb:
             sb.start()
             for i in range(100):
                 count.value = i+1
@@ -751,11 +751,11 @@ def test_progress_bar_multi_fancy():
     max_count = []
     prepend = []
     for i in range(n):
-        count.append(progress.UnsignedIntValue(0))
-        max_count.append(progress.UnsignedIntValue(max_count_value))
+        count.append(progression.UnsignedIntValue(0))
+        max_count.append(progression.UnsignedIntValue(max_count_value))
         prepend.append('_{}_:'.format(i))
     try:
-        with progress.ProgressBarFancy(count=count,
+        with progression.ProgressBarFancy(count=count,
                                        max_count=max_count,
                                        interval=INTERVAL,
                                        speed_calc_cycles=10,
@@ -780,13 +780,13 @@ def test_progress_bar_multi_fancy():
                  
             
 def test_progress_bar_fancy_small():
-    count = progress.UnsignedIntValue()
+    count = progression.UnsignedIntValue()
     m = 15
-    max_count = progress.UnsignedIntValue(m)
+    max_count = progression.UnsignedIntValue(m)
     
     for width in ['auto', 80,70,60,50,40,30,20,10,5]:
         try:    
-            with progress.ProgressBarFancy(count, max_count, interval=INTERVAL, width=width) as sb:
+            with progression.ProgressBarFancy(count, max_count, interval=INTERVAL, width=width) as sb:
                 sb.start()
                 for i in range(m):
                     count.value = i+1
@@ -794,12 +794,12 @@ def test_progress_bar_fancy_small():
         finally:
             _kill_pid(sb.getpid())            
 def test_progress_bar_counter_fancy():
-    c1 = progress.UnsignedIntValue(val=0)
-    c2 = progress.UnsignedIntValue(val=0)
+    c1 = progression.UnsignedIntValue(val=0)
+    c2 = progression.UnsignedIntValue(val=0)
     
     maxc = 30
-    m1 = progress.UnsignedIntValue(val=maxc)
-    m2 = progress.UnsignedIntValue(val=maxc)
+    m1 = progression.UnsignedIntValue(val=maxc)
+    m2 = progression.UnsignedIntValue(val=maxc)
     
     c = [c1, c2]
     m = [m1, m2]
@@ -808,7 +808,7 @@ def test_progress_bar_counter_fancy():
     
     pp = ['a ', 'b ']
     try:
-        with progress.ProgressBarCounterFancy(count=c, max_count=m, interval=INTERVAL, prepend = pp) as sc:
+        with progression.ProgressBarCounterFancy(count=c, max_count=m, interval=INTERVAL, prepend = pp) as sc:
             sc.start()
             while True:
                 i = np.random.randint(0,2)
@@ -824,14 +824,14 @@ def test_progress_bar_counter_fancy():
         _kill_pid(sc.getpid())                  
 
 def test_progress_bar_counter_fancy_non_max():
-    c1 = progress.UnsignedIntValue(val=0)
-    c2 = progress.UnsignedIntValue(val=0)
+    c1 = progression.UnsignedIntValue(val=0)
+    c2 = progression.UnsignedIntValue(val=0)
     
     c = [c1, c2]
     maxc = 30
     t0 = time.time()
     try:
-        with progress.ProgressBarCounterFancy(count=c, interval=INTERVAL) as sc:
+        with progression.ProgressBarCounterFancy(count=c, interval=INTERVAL) as sc:
             sc.start()
             while True:
                 i = np.random.randint(0,2)
@@ -847,10 +847,10 @@ def test_progress_bar_counter_fancy_non_max():
         _kill_pid(sc.getpid())                  
             
 def test_progress_bar_counter_fancy_hide_bar():
-    c1 = progress.UnsignedIntValue(val=0)
-    c2 = progress.UnsignedIntValue(val=0)
+    c1 = progression.UnsignedIntValue(val=0)
+    c2 = progression.UnsignedIntValue(val=0)
     
-    m1 = progress.UnsignedIntValue(val=0)
+    m1 = progression.UnsignedIntValue(val=0)
     
     c = [c1, c2]
     m = [m1, m1]
@@ -858,7 +858,7 @@ def test_progress_bar_counter_fancy_hide_bar():
     t0 = time.time()
     
     try:    
-        with progress.ProgressBarCounterFancy(count=c, max_count=m, interval=INTERVAL) as sc:
+        with progression.ProgressBarCounterFancy(count=c, max_count=m, interval=INTERVAL) as sc:
             sc.start()
             while True:
                 i = np.random.randint(0,2)
@@ -875,11 +875,11 @@ def test_progress_bar_counter_fancy_hide_bar():
                   
 
 def test_info_line():
-    c1 = progress.UnsignedIntValue(val=0)
-    s  = progress.StringValue(80)
-    m1 = progress.UnsignedIntValue(val=30)
+    c1 = progression.UnsignedIntValue(val=0)
+    s  = progression.StringValue(80)
+    m1 = progression.UnsignedIntValue(val=30)
     try:
-        with progress.ProgressBarFancy(count=c1, max_count=m1, interval=INTERVAL, info_line=s) as sc:
+        with progression.ProgressBarFancy(count=c1, max_count=m1, interval=INTERVAL, info_line=s) as sc:
             sc.start()
             while True:
                 c1.value = c1.value + 1
@@ -893,10 +893,10 @@ def test_info_line():
                    
             
 def test_change_prepend():
-    c1 = progress.UnsignedIntValue(val=0)
-    m1 = progress.UnsignedIntValue(val=30)    
+    c1 = progression.UnsignedIntValue(val=0)
+    m1 = progression.UnsignedIntValue(val=30)    
     try:
-        with progress.ProgressBarFancy(count=c1, max_count=m1, interval=INTERVAL) as sc:
+        with progression.ProgressBarFancy(count=c1, max_count=m1, interval=INTERVAL) as sc:
             sc.start()
             while True:
                 c1.value = c1.value + 1
@@ -909,10 +909,10 @@ def test_change_prepend():
                    
             
 def test_stop_progress_with_large_interval():
-    c1 = progress.UnsignedIntValue(val=0)
-    m1 = progress.UnsignedIntValue(val=10)    
+    c1 = progression.UnsignedIntValue(val=0)
+    m1 = progression.UnsignedIntValue(val=10)    
     try:
-        with progress.ProgressBarFancy(count=c1, max_count=m1, interval=10*INTERVAL) as sc:
+        with progression.ProgressBarFancy(count=c1, max_count=m1, interval=10*INTERVAL) as sc:
             sc.start()
             while True:
                 c1.value = c1.value + 1
@@ -923,13 +923,13 @@ def test_stop_progress_with_large_interval():
     finally:
         _kill_pid(sc.getpid())
                
-    print("done progress")
+    print("done progression")
     
 def test_get_identifier():
     for bold in [True, False]:
         for name in [None, 'test']:
             for pid in [None, 'no PID']:
-                id = progress.get_identifier(name=name, pid=pid, bold=bold)
+                id = progression.get_identifier(name=name, pid=pid, bold=bold)
                 print(id)
     
 def test_catch_subprocess_error():
@@ -940,7 +940,7 @@ def test_catch_subprocess_error():
         print("no error")
         
     try:
-        with progress.Loop(func     = f_no_error,
+        with progression.Loop(func     = f_no_error,
                            interval = INTERVAL) as loop:
             loop.start()
             time.sleep(0.5*INTERVAL)
@@ -951,14 +951,14 @@ def test_catch_subprocess_error():
         _kill_pid(loop.getpid())
 
     try:
-        with progress.Loop(func     = f_error,
+        with progression.Loop(func     = f_error,
                            interval = INTERVAL) as loop:
             loop.start()
             time.sleep(0.5*INTERVAL)
 
         _safe_assert_not_loop_is_alive(loop)
         print("[+] normal loop stopped")
-    except progress.LoopExceptionError:
+    except progression.LoopExceptionError:
         print("noticed that an exception occurred")
         
     finally:
@@ -969,7 +969,7 @@ def test_stopping_loop():
         return True
     
     try:
-        with progress.Loop(func     = f,
+        with progression.Loop(func     = f,
                            interval = INTERVAL) as loop:
             loop.start()
             time.sleep(1.5*INTERVAL)
@@ -981,14 +981,14 @@ def test_stopping_loop():
         _kill_pid(loop.getpid())
         
 def test_humanize_time():
-    assert progress.humanize_time(0.1234567) == '123.46ms', "{}".format(progress.humanize_time(0.1234567)) 
-    assert progress.humanize_time(5.1234567) == '5.12s', "{}".format(progress.humanize_time(5.1234567))
-    assert progress.humanize_time(123456) == '34:17:36', "{}".format(progress.humanize_time(123456))
+    assert progression.humanize_time(0.1234567) == '123.46ms', "{}".format(progression.humanize_time(0.1234567)) 
+    assert progression.humanize_time(5.1234567) == '5.12s', "{}".format(progression.humanize_time(5.1234567))
+    assert progression.humanize_time(123456) == '34:17:36', "{}".format(progression.humanize_time(123456))
     
 def test_wrapper_termination():
-    progress.log.setLevel(logging.DEBUG)
+    progression.log.setLevel(logging.DEBUG)
     
-    shared_pid = progress.UnsignedIntValue()
+    shared_pid = progression.UnsignedIntValue()
     
     def f(shared_pid):
         class Signal_to_sys_exit(object):
@@ -996,8 +996,8 @@ def test_wrapper_termination():
                 for s in signals:
                     signal.signal(s, self._handler)
             def _handler(self, signal, frame):
-                print("PID {}: received signal {} -> call sys.exit -> raise SystemExit".format(os.getpid(), progress.signal_dict[signal]))
-                sys.exit('exit due to signal {}'.format(progress.signal_dict[signal]))
+                print("PID {}: received signal {} -> call sys.exit -> raise SystemExit".format(os.getpid(), progression.signal_dict[signal]))
+                sys.exit('exit due to signal {}'.format(progression.signal_dict[signal]))
         
         Signal_to_sys_exit()
         
@@ -1006,7 +1006,7 @@ def test_wrapper_termination():
             shared_pid.value = os.getpid()
             print(time.clock())
             
-        with progress.Loop(func = loopf, args = (shared_pid,), sigint='ign', sigterm='ign', interval=0.3) as l:
+        with progression.Loop(func = loopf, args = (shared_pid,), sigint='ign', sigterm='ign', interval=0.3) as l:
             l.start()
             while True:
                 time.sleep(1)
@@ -1036,7 +1036,7 @@ def test_codecov_subprocess_test():
         it turns out that this line is accounted for by pytest-cov (2.7, 3.4)   
     """
     def f():
-        progress.codecov_subprocess_check()
+        progression.codecov_subprocess_check()
         
     p = mp.Process(target = f)
     p.start()
