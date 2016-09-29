@@ -1,5 +1,5 @@
-progress
-==========
+progression
+===========
 [![Build Status](https://travis-ci.org/cimatosa/progress.svg?branch=master)](https://travis-ci.org/cimatosa/progress)
 [![codecov](https://codecov.io/gh/cimatosa/progress/branch/master/graph/badge.svg)](https://codecov.io/gh/cimatosa/progress)
 
