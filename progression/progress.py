@@ -24,6 +24,14 @@ import sys
 import time
 import traceback
 import os
+import io
+
+# restore python2 compatibility
+if sys.version_info[0] == 2:
+    ProcessLookupError = OSError
+    inMemoryBuffer = io.BytesIO
+elif sys.version_info[0] == 3:
+    inMemoryBuffer = io.StringIO
 
 class StdoutPipe(object):
     def __init__(self, conn):
@@ -33,6 +41,21 @@ class StdoutPipe(object):
         pass
     def write(self, b):
         self.conn.send(b)
+
+class PipeToPrint(object):
+    def __call__(self, b):
+        print(b, end='')
+
+class PipeFromProgressToIPythonHTMLWidget(object):
+    def __init__(self, htmlWidget):
+        self.htmlWidget = htmlWidget
+        self._buff = ""
+    def __call__(self, b):
+        self._buff += b
+        if b.endswith(ESC_MY_MAGIC_ENDING):
+            buff = ESC_SEQ_to_HTML(self._buff)
+            self.htmlWidget.value = '<style>.widget-html{font-family:monospace;white-space:pre}</style>'+buff
+            self._buff = ""
         
 
 class MultiLineFormatter(logging.Formatter):
@@ -125,7 +148,8 @@ class Loop(object):
                  sigint                   = 'stop',
                  sigterm                  = 'stop',
                  auto_kill_on_last_resort = False,
-                 raise_error              = True):
+                 raise_error              = True,
+                 pipe_handler             = PipeToPrint()):
         """
         func [callable] - function to be called periodically
         
@@ -168,6 +192,7 @@ class Loop(object):
         log.debug("auto_kill_on_last_resort = %s", self._auto_kill_on_last_resort)
         
         self._monitor_thread = None
+        self.pipe_handler = pipe_handler
         self.raise_error = raise_error
 
     def __enter__(self):
@@ -264,10 +289,11 @@ class Loop(object):
         while True:
             try:
                 b = self.conn_recv.recv()
-                print(b, end='')
-                print(len(b), [ord(bi) for bi in b])
+                self.pipe_handler(b)
             except EOFError:
                 break
+
+
         
     def start(self):
         """
@@ -433,7 +459,8 @@ class Progress(Loop):
                  verbose           = None,
                  sigint            = 'stop', 
                  sigterm           = 'stop',
-                 info_line         = None):
+                 info_line         = None,
+                 pipe_handler      = PipeToPrint()):
         """       
         count [mp.Value] - shared memory to hold the current state, (list or single value)
         
@@ -545,7 +572,8 @@ class Progress(Loop):
                       interval = interval,
                       sigint   = sigint,
                       sigterm  = sigterm,
-                      auto_kill_on_last_resort = True)
+                      auto_kill_on_last_resort = True,
+                      pipe_handler             = pipe_handler)
 
     def __exit__(self, *exc_args):
         self.stop()
@@ -624,6 +652,7 @@ class Progress(Loop):
             reset i-th progress information
         """
         self.count[i].value=0
+        log.debug("reset counter %s", i)
         self.lock[i].acquire()
         for x in range(self.q[i].qsize()):
             self.q[i].get()
@@ -761,8 +790,10 @@ class Progress(Loop):
         
         if no_move_up:
             n = 0
-            
-        print(ESC_MOVE_LINE_UP(n) + ESC_NO_CHAR_ATTR, end='')
+                                    # this is only a hack to find the end
+                                    # of the message in a stream
+                                    # so ESC_HIDDEN+ESC_NO_CHAR_ATTR is a magic ending
+        print(ESC_MOVE_LINE_UP(n) + ESC_MY_MAGIC_ENDING, end='')
         sys.stdout.flush()
 
     def start(self):
@@ -791,8 +822,13 @@ class Progress(Loop):
         terminal_unreserve(progress_obj=self, verbose=self.verbose)
 
         if self.show_on_exit:
+            myout = inMemoryBuffer()
+            stdout = sys.stdout
+            sys.stdout = myout
             self._show_stat()
+            self.pipe_handler(myout.getvalue())
             print()
+            sys.stdout = stdout
         self.show_on_exit = False
         
 
@@ -835,7 +871,6 @@ class ProgressBar(Progress):
                                           humanize_speed(speed))
             
             l = len_string_without_ESC(s1+s3)
-            
             if max_count_value != 0:
                 l2 = width - l - 1
                 a = int(l2 * count_value / max_count_value)
@@ -902,7 +937,7 @@ class ProgressBarCounter(Progress):
         
         self.counter_speed[i].value = speed
                     
-        super(ProgressBarCounter, self)._reset_i(i)
+        Progress._reset_i(self, i)
         
     @staticmethod
     def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
@@ -1143,25 +1178,14 @@ class SIG_handler_Loop(object):
         self.log.info("received sig %s -> raise InterruptedError", signal_dict[signal])
         raise LoopInterruptError()
 
-def ESC_MOVE_LINE_UP(n):
-    return "\033[{}A".format(n)
-
-
-def ESC_MOVE_LINE_DOWN(n):
-    return "\033[{}B".format(n)
-
-
 def FloatValue(val=0.):
     return mp.Value('d', val, lock=True)
-
 
 def UnsignedIntValue(val=0):
     return mp.Value('I', val, lock=True)
 
-
 def StringValue(num_of_bytes):
     return mp.Array('c', _jm_compatible_bytearray(num_of_bytes), lock=True)
-
 
 def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = False):
     proc.join(timeout)
@@ -1323,9 +1347,97 @@ def len_string_without_ESC(s):
     return len(remove_ESC_SEQ_from_string(s))
 
 def remove_ESC_SEQ_from_string(s):
-    for esc_seq in ESC_SEQ_SET:
-        s = s.replace(esc_seq, '')
-    return s
+    old_idx = 0
+    new_s = ""
+    ESC_CHAR_START = "\033["
+    while True:
+        idx = s.find(ESC_CHAR_START, old_idx)
+        if idx == -1:
+            break
+        j = 2
+        while s[idx+j] in '0123456789':
+            j += 1
+
+        new_s += s[old_idx:idx]
+        old_idx = idx+j+1
+
+    new_s += s[old_idx:]
+    return new_s
+
+    # for esc_seq in ESC_SEQ_SET:
+    #     s = s.replace(esc_seq, '')
+    # return s
+
+def ESC_SEQ_to_HTML(s):
+    old_idx = 0
+    new_s = ""
+    ESC_CHAR_START = "\033["
+    color_on = False
+    bold_on = False
+    end_tags = []
+    while True:
+        idx = s.find(ESC_CHAR_START, old_idx)
+        if idx == -1:
+            break
+        j = 2
+        while s[idx + j] in '0123456789':
+            j += 1
+
+        new_s += s[old_idx:idx]
+        old_idx = idx + j + 1
+        escseq = s[idx:idx+j+1]
+        if escseq in ESC_COLOR_TO_HTML:
+            if color_on:
+                poped_bold = False
+                while end_tags[-1] != '</span>':
+                    _t = end_tags.pop()
+                    if _t == '</b>':
+                        poped_bold = True
+                    new_s += _t
+                new_s += end_tags.pop()
+
+                if poped_bold:
+                    new_s += '<b>'
+                    end_tags.append('</b>')
+
+            new_s += '<span style="color:{}">'.format(ESC_COLOR_TO_HTML[escseq])
+            end_tags.append('</span>')
+            color_on = True
+        elif escseq == ESC_DEFAULT:
+            if color_on:
+                poped_bold = False
+                while end_tags[-1] != '</span>':
+                    _t = end_tags.pop()
+                    if _t == '</b>':
+                        poped_bold = True
+                    new_s += _t
+                new_s += end_tags.pop()
+
+                if poped_bold:
+                    new_s += '<b>'
+                    end_tags.append('</b>')
+
+        elif escseq == ESC_NO_CHAR_ATTR:
+            while len(end_tags) > 0:
+                new_s += end_tags.pop()
+            color_on = False
+            bold_on = False
+
+        elif escseq == ESC_BOLD:
+            if not bold_on:
+                new_s += '<b>'
+                end_tags.append('</b>')
+                bold_on = True
+        else:
+            pass
+
+    new_s += s[old_idx:]
+    while len(end_tags) > 0:
+        new_s += end_tags.pop()
+
+    return new_s
+
+
 
 def terminal_reserve(progress_obj, terminal_obj=None, identifier=None):
     """ Registers the terminal (stdout) for printing.
@@ -1413,6 +1525,13 @@ for s in dir(signal):
         else:
             signal_dict[n] = s
 
+def ESC_MOVE_LINE_UP(n):
+    return "\033[{}A".format(n)
+
+
+def ESC_MOVE_LINE_DOWN(n):
+    return "\033[{}B".format(n)
+
 ESC_NO_CHAR_ATTR  = "\033[0m"
 
 ESC_BOLD          = "\033[1m"
@@ -1421,6 +1540,8 @@ ESC_UNDERLINED    = "\033[4m"
 ESC_BLINK         = "\033[5m"
 ESC_INVERTED      = "\033[7m"
 ESC_HIDDEN        = "\033[8m"
+
+ESC_MY_MAGIC_ENDING = ESC_HIDDEN + ESC_NO_CHAR_ATTR
 
 # not widely supported, use '22' instead 
 # ESC_RESET_BOLD       = "\033[21m"
@@ -1450,6 +1571,24 @@ ESC_LIGHT_BLUE    = "\033[94m"
 ESC_LIGHT_MAGENTA = "\033[95m"
 ESC_LIGHT_CYAN    = "\033[96m"
 ESC_WHITE         = "\033[97m"
+
+ESC_COLOR_TO_HTML = {
+    ESC_BLACK         : '#000000',
+    ESC_RED           : '#800000',
+    ESC_GREEN         : '#008000',
+    ESC_YELLOW        : '#808000',
+    ESC_BLUE          : '#000080',
+    ESC_MAGENTA       : '#800080',
+    ESC_CYAN          : '#008080',
+    ESC_LIGHT_GREY    : '#c0c0c0',
+    ESC_DARK_GREY     : '#808080',
+    ESC_LIGHT_RED     : '#ff0000',
+    ESC_LIGHT_GREEN   : '#00ff00',
+    ESC_LIGHT_YELLOW  : '#ffff00',
+    ESC_LIGHT_BLUE    : '#0000ff',
+    ESC_LIGHT_MAGENTA : '#ff00ff',
+    ESC_LIGHT_CYAN    : '#00ffff',
+    ESC_WHITE         : '#ffffff'}
 
 ESC_SEQ_SET = [ESC_NO_CHAR_ATTR,
                ESC_BOLD,

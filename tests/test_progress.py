@@ -204,7 +204,6 @@ def test_loop_stdout_pipe():
         
     cap_out = myout.getvalue()
     test_string = test_string+"\n"
-
     assert cap_out == test_string
             
 def test_loop_pause():
@@ -771,7 +770,7 @@ def test_progress_bar_multi_fancy():
                 with count[i].get_lock():
                     count[i].value += 1
                     
-                if count[i].value > 100:
+                if count[i].value > max_count[i].value:
                     sbm.reset(i)
                     
                 time.sleep(INTERVAL/200)
@@ -1042,12 +1041,32 @@ def test_codecov_subprocess_test():
     p.start()
     p.join(1)
     if p.is_alive():
-        p.terminate()    
+        p.terminate()
+
+def test_ESC_SEQ():
+    s = "hal"+progression.ESC_BOLD+"lo "+progression.ESC_MOVE_LINE_DOWN(4)+"welt"+progression.ESC_LIGHT_BLUE
+    s_stripped = progression.remove_ESC_SEQ_from_string(s)
+    assert s_stripped == "hallo welt"
+
+    for e in progression.ESC_SEQ_SET:
+        s += e
+
+    s_stripped = progression.remove_ESC_SEQ_from_string(s)
+    assert s_stripped == "hallo welt"
+
+
+    s = ("hallo "+progression.ESC_BLUE+"w"+progression.ESC_BOLD+"el"+progression.ESC_CYAN+"t"+progression.ESC_NO_CHAR_ATTR+"\n"+
+         "hallo " + progression.ESC_BLUE + "w" + progression.ESC_BOLD + "el" + progression.ESC_CYAN + "t")
+
+
+    s_html = progression.ESC_SEQ_to_HTML(s)
+    print(s_html)
+
 
 if __name__ == "__main__":
     func = [    
 #     test_humanize_time,
-    test_codecov_subprocess_test,
+#     test_codecov_subprocess_test,
 #     test_wrapper_termination,
 #     test_catch_subprocess_error,
 #     test_prefix_logger,
@@ -1060,7 +1079,7 @@ if __name__ == "__main__":
 #     test_loop_need_sigterm_to_stop,
 #     test_loop_need_sigkill_to_stop,
 #     test_why_with_statement,
-#     test_progress_bar,
+    test_progress_bar,
 #     test_progress_bar_with_statement,
 #     test_progress_bar_multi,
 #     test_status_counter,
@@ -1083,6 +1102,7 @@ if __name__ == "__main__":
 #     test_stop_progress_with_large_interval,
 #     test_get_identifier,
 #     test_stopping_loop,
+#         test_ESC_SEQ,
     lambda: print("END")
     ]
     
