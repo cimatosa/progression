@@ -265,6 +265,7 @@ class Loop(object):
             try:
                 b = self.conn_recv.recv()
                 print(b, end='')
+                print(len(b), [ord(bi) for bi in b])
             except EOFError:
                 break
         
