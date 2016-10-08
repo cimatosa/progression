@@ -1,0 +1,625 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>progression module &#8212; progression 1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="top" title="progression 1 documentation" href="index.html" />
+    <link rel="up" title="package domumentation" href="progression.html" />
+    <link rel="next" title="progression.decorators module" href="decorators.html" />
+    <link rel="prev" title="package domumentation" href="progression.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-progression.progress">
+<span id="progression-module"></span><h1>progression module<a class="headerlink" href="#module-progression.progress" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="progression.progress.ESC_MOVE_LINE_DOWN">
+<code class="descclassname">progression.progress.</code><code class="descname">ESC_MOVE_LINE_DOWN</code><span class="sig-paren">(</span><em>n</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ESC_MOVE_LINE_DOWN"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ESC_MOVE_LINE_DOWN" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.ESC_MOVE_LINE_UP">
+<code class="descclassname">progression.progress.</code><code class="descname">ESC_MOVE_LINE_UP</code><span class="sig-paren">(</span><em>n</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ESC_MOVE_LINE_UP"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ESC_MOVE_LINE_UP" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.ESC_SEQ_to_HTML">
+<code class="descclassname">progression.progress.</code><code class="descname">ESC_SEQ_to_HTML</code><span class="sig-paren">(</span><em>s</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ESC_SEQ_to_HTML"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ESC_SEQ_to_HTML" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.FloatValue">
+<code class="descclassname">progression.progress.</code><code class="descname">FloatValue</code><span class="sig-paren">(</span><em>val=0.0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#FloatValue"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.FloatValue" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.Loop">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">Loop</code><span class="sig-paren">(</span><em>func</em>, <em>args=()</em>, <em>interval=1</em>, <em>verbose=None</em>, <em>sigint='stop'</em>, <em>sigterm='stop'</em>, <em>auto_kill_on_last_resort=False</em>, <em>raise_error=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Loop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Loop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/2/library/functions.html#object" title="(in Python v2.7)"><code class="xref py py-class docutils literal"><span class="pre">object</span></code></a></p>
+<p>class to run a function periodically an seperate process.</p>
+<p>In case the called function returns True, the loop will stop.
+Otherwise a time interval given by interval will be slept before
+another execution is triggered.</p>
+<p>The shared memory variable _run (accessible via the class property run)  
+also determines if the function if executed another time. If set to False
+the execution stops.</p>
+<p>For safe cleanup (and in order to catch any Errors)
+it is advisable to instantiate this class
+using &#8216;with&#8217; statement as follows:</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>with Loop(<a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs) as my_loop:</dt>
+<dd>my_loop.start()
+...</dd>
+</dl>
+</div></blockquote>
+<p>this will guarantee you that the spawned loop process is
+down when exiting the &#8216;with&#8217; scope.</p>
+<p>The only circumstance where the process is still running is
+when you set auto_kill_on_last_resort to False and answer the
+question to send SIGKILL with no.</p>
+<dl class="method">
+<dt id="progression.progress.Loop.getpid">
+<code class="descname">getpid</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Loop.getpid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Loop.getpid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="progression.progress.Loop.is_alive">
+<code class="descname">is_alive</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Loop.is_alive"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Loop.is_alive" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="progression.progress.Loop.join">
+<code class="descname">join</code><span class="sig-paren">(</span><em>timeout</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Loop.join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Loop.join" title="Permalink to this definition">¶</a></dt>
+<dd><p>calls join for the spawned process with given timeout</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="progression.progress.Loop.pause">
+<code class="descname">pause</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Loop.pause"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Loop.pause" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="progression.progress.Loop.resume">
+<code class="descname">resume</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Loop.resume"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Loop.resume" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="progression.progress.Loop.run">
+<code class="descname">run</code><a class="headerlink" href="#progression.progress.Loop.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>makes the shared memory boolean accessible as class attribute</p>
+<p>Set run False, the loop will stop repeating.
+Calling start, will set run True and start the loop again as a new process.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="progression.progress.Loop.start">
+<code class="descname">start</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Loop.start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Loop.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>uses multiprocess Process to call _wrapper_func in subprocess</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="progression.progress.Loop.stop">
+<code class="descname">stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Loop.stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Loop.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>stops the process triggered by start</p>
+<p>Setting the shared memory boolean run to false, which should prevent
+the loop from repeating. Call __cleanup to make sure the process
+stopped. After that we could trigger start() again.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="progression.progress.LoopExceptionError">
+<em class="property">exception </em><code class="descclassname">progression.progress.</code><code class="descname">LoopExceptionError</code><a class="reference internal" href="_modules/progression/progress.html#LoopExceptionError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.LoopExceptionError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">RuntimeError</span></code></p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="progression.progress.LoopInterruptError">
+<em class="property">exception </em><code class="descclassname">progression.progress.</code><code class="descname">LoopInterruptError</code><a class="reference internal" href="_modules/progression/progress.html#LoopInterruptError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.LoopInterruptError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">Exception</span></code></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.MultiLineFormatter">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">MultiLineFormatter</code><span class="sig-paren">(</span><em>fmt=None</em>, <em>datefmt=None</em>, <em>style='%'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#MultiLineFormatter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.MultiLineFormatter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/2/library/logging.html#logging.Formatter" title="(in Python v2.7)"><code class="xref py py-class docutils literal"><span class="pre">logging.Formatter</span></code></a></p>
+<p>pads a multiline log message with spaces such that</p>
+<dl class="docutils">
+<dt>&lt;HEAD&gt; msg_line1</dt>
+<dd><dl class="first last docutils">
+<dt>msg_line2</dt>
+<dd>...</dd>
+</dl>
+</dd>
+</dl>
+<dl class="method">
+<dt id="progression.progress.MultiLineFormatter.format">
+<code class="descname">format</code><span class="sig-paren">(</span><em>record</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#MultiLineFormatter.format"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.MultiLineFormatter.format" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.PipeFromProgressToIPythonHTMLWidget">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">PipeFromProgressToIPythonHTMLWidget</code><a class="reference internal" href="_modules/progression/progress.html#PipeFromProgressToIPythonHTMLWidget"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.PipeFromProgressToIPythonHTMLWidget" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/2/library/functions.html#object" title="(in Python v2.7)"><code class="xref py py-class docutils literal"><span class="pre">object</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="progression.progress.PipeHandler">
+<code class="descclassname">progression.progress.</code><code class="descname">PipeHandler</code><a class="headerlink" href="#progression.progress.PipeHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="#progression.progress.PipeToPrint" title="progression.progress.PipeToPrint"><code class="xref py py-class docutils literal"><span class="pre">PipeToPrint</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.PipeToPrint">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">PipeToPrint</code><a class="reference internal" href="_modules/progression/progress.html#PipeToPrint"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.PipeToPrint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/2/library/functions.html#object" title="(in Python v2.7)"><code class="xref py py-class docutils literal"><span class="pre">object</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.Progress">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">Progress</code><span class="sig-paren">(</span><em>count</em>, <em>max_count=None</em>, <em>prepend=None</em>, <em>width='auto'</em>, <em>speed_calc_cycles=10</em>, <em>interval=1</em>, <em>verbose=None</em>, <em>sigint='stop'</em>, <em>sigterm='stop'</em>, <em>info_line=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Progress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Progress" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#progression.progress.Loop" title="progression.progress.Loop"><code class="xref py py-class docutils literal"><span class="pre">progression.progress.Loop</span></code></a></p>
+<p>Abstract Progress Loop</p>
+<p>Uses Loop class to implement a repeating function to display the progress
+of multiples processes.</p>
+<p>In the simplest case, given only a list of shared memory values &#8216;count&#8217; (NOTE: 
+a single value will be automatically mapped to a one element list),
+the total elapses time (TET) and a speed estimation are calculated for
+each process and passed to the display function show_stat.</p>
+<p>This functions needs to be implemented in a subclass. It is intended to show
+the progress of ONE process in one line.</p>
+<p>When max_count is given (in general as list of shared memory values, a single
+shared memory value will be mapped to a one element list) the time to go TTG
+will also be calculated and passed tow show_stat.</p>
+<p>Information about the terminal width will be retrieved when setting width=&#8217;auto&#8217;.
+If supported by the terminal emulator the width in characters of the terminal
+emulator will be stored in width and also passed to show_stat. 
+Otherwise, a default width of 80 characters will be chosen.</p>
+<p>Also you can specify a fixed width by setting width to the desired number.</p>
+<p>NOTE: in order to achieve multiline progress special escape sequences are used
+which may not be supported by all terminal emulators.</p>
+<p>example:</p>
+<blockquote>
+<div><p>c1 = UnsignedIntValue(val=0)
+c2 = UnsignedIntValue(val=0)</p>
+<p>c = [c1, c2]
+prepend = [&#8216;c1: &#8216;, &#8216;c2: &#8216;]
+with ProgressCounter(count=c, prepend=prepend) as sc:</p>
+<blockquote>
+<div><p>sc.start()
+while True:</p>
+<blockquote>
+<div><p>i = np.random.randint(0,2)
+with c[i].get_lock():</p>
+<blockquote>
+<div>c[i].value += 1</div></blockquote>
+<dl class="docutils">
+<dt>if c[0].value == 1000:</dt>
+<dd>break</dd>
+</dl>
+<p>time.sleep(0.01)</p>
+</div></blockquote>
+</div></blockquote>
+</div></blockquote>
+<p>using start() within the &#8216;with&#8217; statement ensures that the subprocess
+which is started by start() in order to show the progress repeatedly
+will be terminated on context exit. Otherwise one has to make sure
+that at some point the stop() routine is called. When dealing with 
+signal handling and exception this might become tricky, so that the  
+use of the &#8216;with&#8217; statement is highly encouraged.</p>
+<dl class="method">
+<dt id="progression.progress.Progress.reset">
+<code class="descname">reset</code><span class="sig-paren">(</span><em>i=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Progress.reset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Progress.reset" title="Permalink to this definition">¶</a></dt>
+<dd><p>convenient function to reset progress information</p>
+<p>i [None, int] - None: reset all, int: reset process indexed by i</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.Progress.show_stat">
+<em class="property">static </em><code class="descname">show_stat</code><span class="sig-paren">(</span><em>count_value</em>, <em>max_count_value</em>, <em>prepend</em>, <em>speed</em>, <em>tet</em>, <em>ttg</em>, <em>width</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Progress.show_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Progress.show_stat" title="Permalink to this definition">¶</a></dt>
+<dd><p>re implement this function in a subclass</p>
+<p>count_value - current value of progress</p>
+<p>max_count_value - maximum value the progress can take</p>
+<p>prepend - some extra string to be put for example in front of the
+progress display</p>
+<p>speed - estimated speed in counts per second (use for example humanize_speed
+to get readable information in string format)</p>
+<p>tet - total elapsed time in seconds (use for example humanize_time
+to get readable information in string format)</p>
+<p>ttg - time to go in seconds (use for example humanize_time
+to get readable information in string format)</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.Progress.show_stat_wrapper">
+<em class="property">static </em><code class="descname">show_stat_wrapper</code><span class="sig-paren">(</span><em>count</em>, <em>last_count</em>, <em>start_time</em>, <em>max_count</em>, <em>speed_calc_cycles</em>, <em>width</em>, <em>q</em>, <em>last_speed</em>, <em>prepend</em>, <em>show_stat_function</em>, <em>add_args</em>, <em>i</em>, <em>lock</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Progress.show_stat_wrapper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Progress.show_stat_wrapper" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.Progress.show_stat_wrapper_multi">
+<em class="property">static </em><code class="descname">show_stat_wrapper_multi</code><span class="sig-paren">(</span><em>count</em>, <em>last_count</em>, <em>start_time</em>, <em>max_count</em>, <em>speed_calc_cycles</em>, <em>width</em>, <em>q</em>, <em>last_speed</em>, <em>prepend</em>, <em>show_stat_function</em>, <em>len_</em>, <em>add_args</em>, <em>lock</em>, <em>info_line</em>, <em>no_move_up=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Progress.show_stat_wrapper_multi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Progress.show_stat_wrapper_multi" title="Permalink to this definition">¶</a></dt>
+<dd><p>call the static method show_stat_wrapper for each process</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="progression.progress.Progress.start">
+<code class="descname">start</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Progress.start"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Progress.start" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="progression.progress.Progress.stop">
+<code class="descname">stop</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#Progress.stop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.Progress.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>trigger clean up by hand, needs to be done when not using
+context management via &#8216;with&#8217; statement</p>
+<ul class="simple">
+<li>will terminate loop process</li>
+<li>show a last progress -&gt; see the full 100% on exit</li>
+<li>releases terminal reservation</li>
+</ul>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.ProgressBar">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">ProgressBar</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBar"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBar" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#progression.progress.Progress" title="progression.progress.Progress"><code class="xref py py-class docutils literal"><span class="pre">progression.progress.Progress</span></code></a></p>
+<p>implements a progress bar similar to the one known from &#8216;wget&#8217; or &#8216;pv&#8217;</p>
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBar.show_stat">
+<em class="property">static </em><code class="descname">show_stat</code><span class="sig-paren">(</span><em>count_value</em>, <em>max_count_value</em>, <em>prepend</em>, <em>speed</em>, <em>tet</em>, <em>ttg</em>, <em>width</em>, <em>i</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBar.show_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBar.show_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.ProgressBarCounter">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">ProgressBarCounter</code><span class="sig-paren">(</span><em>speed_calc_cycles_counter=5</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarCounter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarCounter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#progression.progress.Progress" title="progression.progress.Progress"><code class="xref py py-class docutils literal"><span class="pre">progression.progress.Progress</span></code></a></p>
+<p>records also the time of each reset and calculates the speed
+of the resets.</p>
+<p>shows the TET since init (not effected by reset)
+the speed of the resets (number of finished processed per time)
+and the number of finished processes</p>
+<p>after that also show a progress of each process
+max_count &gt; 0 and not None -&gt; bar
+max_count == None -&gt; absolute count statistic
+max_count == 0 -&gt; hide process statistic at all</p>
+<dl class="method">
+<dt id="progression.progress.ProgressBarCounter.get_counter_count">
+<code class="descname">get_counter_count</code><span class="sig-paren">(</span><em>i=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarCounter.get_counter_count"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarCounter.get_counter_count" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarCounter.show_stat">
+<em class="property">static </em><code class="descname">show_stat</code><span class="sig-paren">(</span><em>count_value</em>, <em>max_count_value</em>, <em>prepend</em>, <em>speed</em>, <em>tet</em>, <em>ttg</em>, <em>width</em>, <em>i</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarCounter.show_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarCounter.show_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.ProgressBarCounterFancy">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">ProgressBarCounterFancy</code><span class="sig-paren">(</span><em>speed_calc_cycles_counter=5</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarCounterFancy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarCounterFancy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#progression.progress.ProgressBarCounter" title="progression.progress.ProgressBarCounter"><code class="xref py py-class docutils literal"><span class="pre">progression.progress.ProgressBarCounter</span></code></a></p>
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarCounterFancy.show_stat">
+<em class="property">static </em><code class="descname">show_stat</code><span class="sig-paren">(</span><em>count_value</em>, <em>max_count_value</em>, <em>prepend</em>, <em>speed</em>, <em>tet</em>, <em>ttg</em>, <em>width</em>, <em>i</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarCounterFancy.show_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarCounterFancy.show_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.ProgressBarFancy">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">ProgressBarFancy</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#progression.progress.Progress" title="progression.progress.Progress"><code class="xref py py-class docutils literal"><span class="pre">progression.progress.Progress</span></code></a></p>
+<p>implements a progress bar where the color indicates the current status
+similar to the bars known from &#8216;htop&#8217;</p>
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarFancy.full_minor_stat">
+<em class="property">static </em><code class="descname">full_minor_stat</code><span class="sig-paren">(</span><em>p</em>, <em>tet</em>, <em>speed</em>, <em>ttg</em>, <em>eta</em>, <em>ort</em>, <em>repl_ch</em>, <em>width</em>, <em>lp</em>, <em>lps</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy.full_minor_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy.full_minor_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarFancy.full_stat">
+<em class="property">static </em><code class="descname">full_stat</code><span class="sig-paren">(</span><em>p</em>, <em>tet</em>, <em>speed</em>, <em>ttg</em>, <em>eta</em>, <em>ort</em>, <em>repl_ch</em>, <em>width</em>, <em>lp</em>, <em>lps</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy.full_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy.full_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarFancy.get_d">
+<em class="property">static </em><code class="descname">get_d</code><span class="sig-paren">(</span><em>s1</em>, <em>s2</em>, <em>width</em>, <em>lp</em>, <em>lps</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy.get_d"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy.get_d" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarFancy.kw_bold">
+<em class="property">static </em><code class="descname">kw_bold</code><span class="sig-paren">(</span><em>s</em>, <em>ch_after</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy.kw_bold"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy.kw_bold" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarFancy.reduced_1_stat">
+<em class="property">static </em><code class="descname">reduced_1_stat</code><span class="sig-paren">(</span><em>p</em>, <em>tet</em>, <em>speed</em>, <em>ttg</em>, <em>eta</em>, <em>ort</em>, <em>repl_ch</em>, <em>width</em>, <em>lp</em>, <em>lps</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy.reduced_1_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy.reduced_1_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarFancy.reduced_2_stat">
+<em class="property">static </em><code class="descname">reduced_2_stat</code><span class="sig-paren">(</span><em>p</em>, <em>tet</em>, <em>speed</em>, <em>ttg</em>, <em>eta</em>, <em>ort</em>, <em>repl_ch</em>, <em>width</em>, <em>lp</em>, <em>lps</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy.reduced_2_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy.reduced_2_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarFancy.reduced_3_stat">
+<em class="property">static </em><code class="descname">reduced_3_stat</code><span class="sig-paren">(</span><em>p</em>, <em>tet</em>, <em>speed</em>, <em>ttg</em>, <em>eta</em>, <em>ort</em>, <em>repl_ch</em>, <em>width</em>, <em>lp</em>, <em>lps</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy.reduced_3_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy.reduced_3_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarFancy.reduced_4_stat">
+<em class="property">static </em><code class="descname">reduced_4_stat</code><span class="sig-paren">(</span><em>p</em>, <em>tet</em>, <em>speed</em>, <em>ttg</em>, <em>eta</em>, <em>ort</em>, <em>repl_ch</em>, <em>width</em>, <em>lp</em>, <em>lps</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy.reduced_4_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy.reduced_4_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="progression.progress.ProgressBarFancy.show_stat">
+<em class="property">static </em><code class="descname">show_stat</code><span class="sig-paren">(</span><em>count_value</em>, <em>max_count_value</em>, <em>prepend</em>, <em>speed</em>, <em>tet</em>, <em>ttg</em>, <em>width</em>, <em>i</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#ProgressBarFancy.show_stat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.ProgressBarFancy.show_stat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.SIG_handler_Loop">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">SIG_handler_Loop</code><span class="sig-paren">(</span><em>sigint</em>, <em>sigterm</em>, <em>log</em>, <em>prefix</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#SIG_handler_Loop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.SIG_handler_Loop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/2/library/functions.html#object" title="(in Python v2.7)"><code class="xref py py-class docutils literal"><span class="pre">object</span></code></a></p>
+<p>class to setup signal handling for the Loop class</p>
+<p>Note: each subprocess receives the default signal handling from it&#8217;s parent.
+If the signal function from the module signal is evoked within the subprocess
+this default behavior can be overwritten.</p>
+<p>The init function receives a shared memory boolean object which will be set
+false in case of signal detection. Since the Loop class will check the state 
+of this boolean object before each repetition, the loop will stop when
+a signal was receives.</p>
+<dl class="method">
+<dt id="progression.progress.SIG_handler_Loop.set_signal">
+<code class="descname">set_signal</code><span class="sig-paren">(</span><em>sig</em>, <em>handler_str</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#SIG_handler_Loop.set_signal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.SIG_handler_Loop.set_signal" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="progression.progress.StdoutPipe">
+<em class="property">class </em><code class="descclassname">progression.progress.</code><code class="descname">StdoutPipe</code><span class="sig-paren">(</span><em>conn</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#StdoutPipe"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.StdoutPipe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/2/library/functions.html#object" title="(in Python v2.7)"><code class="xref py py-class docutils literal"><span class="pre">object</span></code></a></p>
+<p>replacement for stream objects such as stdout which
+forwards all incoming data using the send method of a
+connection</p>
+<p>example usage:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">multiprocessing</span> <span class="k">import</span> <span class="n">Pipe</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">progression</span> <span class="k">import</span> <span class="n">StdoutPipe</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">conn_recv</span><span class="p">,</span> <span class="n">conn_send</span> <span class="o">=</span> <span class="n">Pipe</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">StdoutPipe</span><span class="p">(</span><span class="n">conn_send</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;hallo welt&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>  <span class="c1"># this is no going through the pipe</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">msg</span> <span class="o">=</span> <span class="n">conn_recv</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">__stdout__</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<span class="go">hallo welt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">msg</span> <span class="o">==</span> <span class="s2">&quot;hallo welt&quot;</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="progression.progress.StdoutPipe.flush">
+<code class="descname">flush</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#StdoutPipe.flush"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.StdoutPipe.flush" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="progression.progress.StdoutPipe.write">
+<code class="descname">write</code><span class="sig-paren">(</span><em>b</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#StdoutPipe.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.StdoutPipe.write" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.StringValue">
+<code class="descclassname">progression.progress.</code><code class="descname">StringValue</code><span class="sig-paren">(</span><em>num_of_bytes</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#StringValue"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.StringValue" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.UnsignedIntValue">
+<code class="descclassname">progression.progress.</code><code class="descname">UnsignedIntValue</code><span class="sig-paren">(</span><em>val=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#UnsignedIntValue"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.UnsignedIntValue" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.check_process_termination">
+<code class="descclassname">progression.progress.</code><code class="descname">check_process_termination</code><span class="sig-paren">(</span><em>proc</em>, <em>prefix</em>, <em>timeout</em>, <em>auto_kill_on_last_resort=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#check_process_termination"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.check_process_termination" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.choose_color_theme">
+<code class="descclassname">progression.progress.</code><code class="descname">choose_color_theme</code><span class="sig-paren">(</span><em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#choose_color_theme"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.choose_color_theme" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.choose_pipe_handler">
+<code class="descclassname">progression.progress.</code><code class="descname">choose_pipe_handler</code><span class="sig-paren">(</span><em>kind='print'</em>, <em>color_theme=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#choose_pipe_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.choose_pipe_handler" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.codecov_subprocess_check">
+<code class="descclassname">progression.progress.</code><code class="descname">codecov_subprocess_check</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#codecov_subprocess_check"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.codecov_subprocess_check" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.getCountKwargs">
+<code class="descclassname">progression.progress.</code><code class="descname">getCountKwargs</code><span class="sig-paren">(</span><em>func</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#getCountKwargs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.getCountKwargs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list [&#8220;count kwarg&#8221;, &#8220;count_max kwarg&#8221;] for a
+given function. Valid combinations are defined in 
+<cite>progress.validCountKwargs</cite>.</p>
+<p>Returns None if no keyword arguments are found.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.get_identifier">
+<code class="descclassname">progression.progress.</code><code class="descname">get_identifier</code><span class="sig-paren">(</span><em>name=None</em>, <em>pid=None</em>, <em>bold=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#get_identifier"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.get_identifier" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.get_terminal_size">
+<code class="descclassname">progression.progress.</code><code class="descname">get_terminal_size</code><span class="sig-paren">(</span><em>defaultw=80</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#get_terminal_size"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.get_terminal_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks various methods to determine the terminal size</p>
+<p>Methods:
+- shutil.get_terminal_size (only Python3)
+- fcntl.ioctl
+- subprocess.check_output
+- os.environ</p>
+<dl class="docutils">
+<dt>defaultw</dt>
+ <span class="classifier-delimiter">:</span> <span class="classifier">int</span><dd>Default width of terminal.</dd>
+</dl>
+<dl class="docutils">
+<dt>width, height</dt>
+ <span class="classifier-delimiter">:</span> <span class="classifier">int</span><dd>Width and height of the terminal. If one of them could not be
+found, None is return in its place.</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.get_terminal_width">
+<code class="descclassname">progression.progress.</code><code class="descname">get_terminal_width</code><span class="sig-paren">(</span><em>default=80</em>, <em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#get_terminal_width"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.get_terminal_width" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.humanize_speed">
+<code class="descclassname">progression.progress.</code><code class="descname">humanize_speed</code><span class="sig-paren">(</span><em>c_per_sec</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#humanize_speed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.humanize_speed" title="Permalink to this definition">¶</a></dt>
+<dd><p>convert a speed in counts per second to counts per [s, min, h, d], choosing the smallest value greater zero.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.humanize_time">
+<code class="descclassname">progression.progress.</code><code class="descname">humanize_time</code><span class="sig-paren">(</span><em>secs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#humanize_time"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.humanize_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>convert second in to hh:mm:ss format</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.len_string_without_ESC">
+<code class="descclassname">progression.progress.</code><code class="descname">len_string_without_ESC</code><span class="sig-paren">(</span><em>s</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#len_string_without_ESC"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.len_string_without_ESC" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.remove_ESC_SEQ_from_string">
+<code class="descclassname">progression.progress.</code><code class="descname">remove_ESC_SEQ_from_string</code><span class="sig-paren">(</span><em>s</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#remove_ESC_SEQ_from_string"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.remove_ESC_SEQ_from_string" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.terminal_reserve">
+<code class="descclassname">progression.progress.</code><code class="descname">terminal_reserve</code><span class="sig-paren">(</span><em>progress_obj</em>, <em>terminal_obj=None</em>, <em>identifier=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#terminal_reserve"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.terminal_reserve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Registers the terminal (stdout) for printing.</p>
+<p>Useful to prevent multiple processes from writing progress bars
+to stdout.</p>
+<p>One process (server) prints to stdout and a couple of subprocesses
+do not print to the same stdout, because the server has reserved it.
+Of course, the clients have to be nice and check with 
+terminal_reserve first if they should (not) print.
+Nothing is locked.</p>
+<p>True if reservation was successful (or if we have already reserved this tty),
+False if there already is a reservation from another instance.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="progression.progress.terminal_unreserve">
+<code class="descclassname">progression.progress.</code><code class="descname">terminal_unreserve</code><span class="sig-paren">(</span><em>progress_obj</em>, <em>terminal_obj=None</em>, <em>verbose=0</em>, <em>identifier=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/progression/progress.html#terminal_unreserve"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#progression.progress.terminal_unreserve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unregisters the terminal (stdout) for printing.</p>
+<p>an instance (progress_obj) can only unreserve the tty (terminal_obj) when it also reserved it</p>
+<p>see terminal_reserved for more information</p>
+<p>None</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="progression.html">package domumentation</a><ul>
+      <li>Previous: <a href="progression.html" title="previous chapter">package domumentation</a></li>
+      <li>Next: <a href="decorators.html" title="next chapter">progression.decorators module</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/progress.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Richard Hartmann.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.8</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/progress.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

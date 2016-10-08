@@ -1,0 +1,4 @@
+Getting started
+===============
+
+.. automodule:: examples

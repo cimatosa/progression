@@ -1,0 +1,255 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Getting started &#8212; progression 1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="top" title="progression 1 documentation" href="index.html" />
+    <link rel="next" title="package domumentation" href="progression.html" />
+    <link rel="prev" title="progression" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-examples">
+<span id="getting-started"></span><h1>Getting started<a class="headerlink" href="#module-examples" title="Permalink to this headline">¶</a></h1>
+<p>How to use the progression package will be demonstrated in the following examples. If you are solely interested
+usage it should suffice to go through the following. If you are searching for the actual doc
+look <a class="reference internal" href="progression.html"><span class="doc">here</span></a>.</p>
+<div class="section" id="the-function-to-monitor">
+<h2>The function to monitor<a class="headerlink" href="#the-function-to-monitor" title="Permalink to this headline">¶</a></h2>
+<p>Let&#8217;s use <code class="docutils literal"><span class="pre">factorial</span></code> as an example function.</p>
+<p>Any function that is supposed to be monitored by one of the classes of the progression package
+needs to have at least one argument that serves as a counter (for <code class="docutils literal"><span class="pre">factorial</span></code> denoted by <code class="docutils literal"><span class="pre">c</span></code>). It needs to be a
+<a class="reference external" href="https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing.sharedctypes">sharedctype</a>
+because one the one hand <code class="docutils literal"><span class="pre">factorial</span></code> is going to change its value according to its state
+and the progress class (which runs in a subprocess) needs to access this value. For convenience progression
+provides <a class="reference internal" href="progress.html#progression.progress.UnsignedIntValue" title="progression.progress.UnsignedIntValue"><code class="xref py py-func docutils literal"><span class="pre">progression.progress.UnsignedIntValue()</span></code></a> which instantiates a shared unsigned int with value 0.</p>
+</div>
+<div class="section" id="progressbar">
+<h2>ProgressBar<a class="headerlink" href="#progressbar" title="Permalink to this headline">¶</a></h2>
+<p>Let&#8217;s use <a class="reference internal" href="progress.html#progression.progress.ProgressBar" title="progression.progress.ProgressBar"><code class="xref py py-class docutils literal"><span class="pre">progress.ProgressBar</span></code></a> to monitor the calculation.</p>
+<p>In general the following steps are necessary:</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p class="first">setup the shared value for the counter</p>
+</li>
+<li><p class="first">create a ProgressBar</p>
+<blockquote>
+<div><ul class="simple">
+<li>count: the shared counter</li>
+<li>max_count: the maximum value counter will reach</li>
+<li>interval: the refresh interval in seconds</li>
+</ul>
+</div></blockquote>
+<p>using the <a class="reference external" href="https://docs.python.org/3/library/contextlib.html">context manager</a> ensures
+that everything gets shutdown on exit</p>
+</li>
+<li><p class="first">start the ProgressBar via <code class="docutils literal"><span class="pre">start()</span></code></p>
+</li>
+<li><p class="first">trigger the calculation where <code class="docutils literal"><span class="pre">c</span></code> is passed to the calculating function</p>
+</li>
+</ol>
+</div></blockquote>
+<p>The output will look like this (here without colors):</p>
+<div class="highlight-none"><div class="highlight"><pre><span></span>2.41s [39078.4c/s] [=================&gt;                    ] TTG 3.00s
+
+  ^            ^                                                ^
+elapsed time   speed estimation in counts per second       time to go
+</pre></div>
+</div>
+</div>
+<div class="section" id="progressbarfancy">
+<h2>ProgressBarFancy<a class="headerlink" href="#progressbarfancy" title="Permalink to this headline">¶</a></h2>
+<p>Now we use <a class="reference internal" href="progress.html#progression.progress.ProgressBarFancy" title="progression.progress.ProgressBarFancy"><code class="xref py py-class docutils literal"><span class="pre">ProgressBarFancy</span></code></a> which provides
+slightly more information.</p>
+<p>Further the example shows how to use a shared type for
+the maximum value of counter, which allows to set max_count
+after the ProgressPar has started, even by the calculating function.</p>
+<p>The output reads something like this:</p>
+<div class="highlight-none"><div class="highlight"><pre><span></span>[TET-2s-[42877.4c/s]-TTG-3s--&gt; 43.0%  ETA 20161008_14:04:31 ORT 5s]
+
+TET: total elapsed time
+TTG: time to go
+ETA: estimated time of arrival
+ORT: estimated overall running time
+</pre></div>
+</div>
+</div>
+<div class="section" id="progressbar-decorator">
+<h2>ProgressBar Decorator<a class="headerlink" href="#progressbar-decorator" title="Permalink to this headline">¶</a></h2>
+<p>To quickly add a ProgressBar to an existing function the decorators from the <a class="reference internal" href="decorators.html"><span class="doc">progression.decorators module</span></a> ease things.</p>
+<p>Modification of the original <code class="docutils literal"><span class="pre">factorial</span></code> function as follows</p>
+<p>and decorating this function with</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nd">@pr</span><span class="o">.</span><span class="n">decorators</span><span class="o">.</span><span class="n">ProgressBar</span>
+</pre></div>
+</div>
+<p>allows for a call as in the unmonitored case</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">factorial_dec</span><span class="p">(</span><span class="n">N</span> <span class="o">=</span> <span class="mi">200000</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>resulting in the following output</p>
+<div class="highlight-none"><div class="highlight"><pre><span></span>factorial_dec 1.01s [61584.8c/s] [=====&gt;    ] TTG 3.00s
+</pre></div>
+</div>
+</div>
+<div class="section" id="progressbar-with-no-max-count-value">
+<h2>ProgressBar with no max_count value<a class="headerlink" href="#progressbar-with-no-max-count-value" title="Permalink to this headline">¶</a></h2>
+<p>When the <code class="docutils literal"><span class="pre">max_count</span></code> argument of the ProgressBar is <code class="docutils literal"><span class="pre">None</span></code>
+only the elapsed time, the current speed and the value of count
+will be shown.</p>
+<div class="highlight-none"><div class="highlight"><pre><span></span>2.47s [38535.8c/s] #95000
+</pre></div>
+</div>
+</div>
+<div class="section" id="progressbarcounter">
+<h2>ProgressBarCounter<a class="headerlink" href="#progressbarcounter" title="Permalink to this headline">¶</a></h2>
+<p>Suppose we want to let a time consuming function run several times
+for example with different parameters. Then the <a class="reference internal" href="progress.html#progression.progress.ProgressBarCounter" title="progression.progress.ProgressBarCounter"><code class="xref py py-class docutils literal"><span class="pre">ProgressBarCounter</span></code></a>
+class counts the individual runs and estimates the speed concerning the runs. Everything on top of
+the usual monitoring.</p>
+<p>For doing so choose <a class="reference internal" href="progress.html#progression.progress.ProgressBarCounter" title="progression.progress.ProgressBarCounter"><code class="xref py py-class docutils literal"><span class="pre">ProgressBarCounter</span></code></a> or <code class="xref py py-class docutils literal"><span class="pre">ProgressBarFancyCounter</span></code> and trigger <code class="docutils literal"><span class="pre">reset()</span></code> every time
+the functions returns.</p>
+<div class="highlight-none"><div class="highlight"><pre><span></span>7.76s [20.0c/min] #2 - 1.75s [3.4c/s] [========&gt;       ] TTG 2.00s
+  ^       ^        ^      ^       ^                            ^
+  1       2        3      4       5                            6
+
+1) total elapsed time
+2) speed of the &#39;resets&#39;
+3) number of &#39;resets&#39;
+4) elapsed time of current run
+5) speed of the current run
+6) time to go for the current run
+</pre></div>
+</div>
+</div>
+<div class="section" id="a-multi-progressbarfancy">
+<h2>a multi ProgressBarFancy<a class="headerlink" href="#a-multi-progressbarfancy" title="Permalink to this headline">¶</a></h2>
+<p>When monitoring several processes in parallel simply replace
+count and max_count by lists of sharedctypes.</p>
+<div class="highlight-none"><div class="highlight"><pre><span></span>_1_:[E-589.07ms----[20.1c/s]-G-1.00s        44.0%         O 1.59s]
+_2_:[E-906.49ms----[19.7c/s]-G-1.00s--------68.0%&gt;        O 1.91s]
+_3_:[E-947.64ms----[20.0c/s]-G-1.00s--------76.0%------&gt;  O 1.95s]
+_4_:[E-160.46ms---&gt;[31.2c/s] G 1.00s        20.0%         O 1.16s]
+</pre></div>
+</div>
+</div>
+<div class="section" id="progressbar-and-ipython-notebook">
+<h2>ProgressBar and IPython notebook<a class="headerlink" href="#progressbar-and-ipython-notebook" title="Permalink to this headline">¶</a></h2>
+<p>Running any kind of ProgressBar in an IPython notebook will result in new lines
+for each status message as moving the cursor is not supported. This problem can
+be circumvented by selecting a special PipeHandler.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">progression</span><span class="o">.</span><span class="n">choose_pipe_handler</span><span class="p">(</span><span class="s1">&#39;ipythonhtml&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Doing so will forward the output from ProgressBar (any subclass of <a class="reference internal" href="progress.html#progression.progress.Loop" title="progression.progress.Loop"><code class="xref py py-class docutils literal"><span class="pre">Loop</span></code></a>) to an
+<a class="reference external" href="http://ipywidgets.readthedocs.io/en/latest/examples/Widget%20List.html#HTML">ipywidget HTML object</a>.
+Such an object will be created and displayed whenever a ProgressBar gets started. The terminal style and coloring
+is converted to pure HTML.</p>
+<div class="jupyter-widgets widget-html"><style>.widget-html{font-family:monospace;white-space:pre}</style><span style="color:#800000">_1_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-588.75ms----[23.8c/s]-<b>G</b>-1.00s--&gt;</span>  56.0%      <b>O</b> 1.59s<b><span style="color:#0000ff">]</span></b>
+<span style="color:#800000">_2_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-907.35ms----[17.6c/s]-<b>G</b>-1.00s-----64.</span>0%      <b>O</b> 1.91s<b><span style="color:#0000ff">]</span></b>
+<span style="color:#800000">_3_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-161</span>.35ms    [12.4c/s] <b>G</b> 2.00s      8.0%      <b>O</b> 2.16s<b><span style="color:#0000ff">]</span></b>
+<span style="color:#800000">_4_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-183.51ms</span>    [21.8c/s] <b>G</b> 1.00s     16.0%      <b>O</b> 1.18s<b><span style="color:#0000ff">]</span></b>
+</div></div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Getting started</a><ul>
+<li><a class="reference internal" href="#the-function-to-monitor">The function to monitor</a></li>
+<li><a class="reference internal" href="#progressbar">ProgressBar</a></li>
+<li><a class="reference internal" href="#progressbarfancy">ProgressBarFancy</a></li>
+<li><a class="reference internal" href="#progressbar-decorator">ProgressBar Decorator</a></li>
+<li><a class="reference internal" href="#progressbar-with-no-max-count-value">ProgressBar with no max_count value</a></li>
+<li><a class="reference internal" href="#progressbarcounter">ProgressBarCounter</a></li>
+<li><a class="reference internal" href="#a-multi-progressbarfancy">a multi ProgressBarFancy</a></li>
+<li><a class="reference internal" href="#progressbar-and-ipython-notebook">ProgressBar and IPython notebook</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">progression</a></li>
+      <li>Next: <a href="progression.html" title="next chapter">package domumentation</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/howto.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Richard Hartmann.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.8</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/howto.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
