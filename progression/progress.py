@@ -101,13 +101,21 @@ class PipeFromProgressToIPythonHTMLWidget(object):
             self._buff = ""
 
 PipeHandler = PipeToPrint
-def choose_pipe_handler(kind = 'print'):
+def choose_pipe_handler(kind = 'print', color_theme = None):
     global PipeHandler
     if kind == 'print':
         PipeHandler = PipeToPrint
-    elif kind == 'ipythonHTML':
+        if color_theme is None:
+            choose_color_theme('term_default')
+        else:
+            choose_color_theme(color_theme)
+    elif kind == 'ipythonhtml':
         if _IPYTHON:
             PipeHandler = PipeFromProgressToIPythonHTMLWidget
+            if color_theme is None:
+                choose_color_theme('ipyt_default')
+            else:
+                choose_color_theme(color_theme)
         else:
             warnings.warn("can not choose ipythonHTML (IPython and/or ipywidgets were not loaded)")
 
@@ -886,36 +894,33 @@ class ProgressBar(Progress):
 
     @staticmethod        
     def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
-        if max_count_value is None:
+        if (max_count_value is None) or (max_count_value == 0):
             # only show current absolute progress as number and estimated speed
-            print("{}{}{}{} [{}] #{}    ".format(ESC_NO_CHAR_ATTR + ESC_RED,
-                                                 prepend, 
-                                                 ESC_BOLD + ESC_GREEN,
-                                                 humanize_time(tet), humanize_speed(speed), count_value))             
+            print("{}{}{} [{}] {}#{}    ".format(ESC_NO_CHAR_ATTR,
+                                                 COLTHM['PRE_COL'] + prepend + ESC_DEFAULT,
+                                                 humanize_time(tet), humanize_speed(speed),
+                                                 ESC_BOLD + COLTHM['BAR_COL'],
+                                                 count_value))
         else:
             if width == 'auto':
                 width = get_terminal_width()
             
             # deduce relative progress and show as bar on screen
             if ttg is None:
-                s3 = "] TTG --"
+                s3 = " TTG --"
             else:
-                s3 = "] TTG {}".format(humanize_time(ttg))
+                s3 = " TTG {}".format(humanize_time(ttg))
                
-            s1 = "{}{}{}{} [{}] [".format(ESC_NO_CHAR_ATTR + ESC_RED,
-                                          prepend, 
-                                          ESC_BOLD + ESC_GREEN,
-                                          humanize_time(tet),
-                                          humanize_speed(speed))
+            s1 = "{}{}{} [{}] ".format(ESC_NO_CHAR_ATTR,
+                                      COLTHM['PRE_COL'] + prepend + ESC_DEFAULT,
+                                      humanize_time(tet),
+                                      humanize_speed(speed))
             
             l = len_string_without_ESC(s1+s3)
-            if max_count_value != 0:
-                l2 = width - l - 1
-                a = int(l2 * count_value / max_count_value)
-                b = l2 - a
-                s2 = "="*a + ">" + " "*b
-            else:
-                s2 = " "*(width - l)
+            l2 = width - l - 3
+            a = int(l2 * count_value / max_count_value)
+            b = l2 - a
+            s2 = COLTHM['BAR_COL'] + ESC_BOLD + "[" + "="*a + ">" + " "*b + "]" + ESC_RESET_BOLD + ESC_DEFAULT
 
             print(s1+s2+s3)
 
@@ -983,38 +988,39 @@ class ProgressBarCounter(Progress):
         counter_speed = kwargs['counter_speed'][i]
         counter_tet = time.time() - kwargs['init_time']
         
-        s_c = "{}{}{}{} [{}] #{}".format(ESC_NO_CHAR_ATTR + ESC_RED,
-                                     prepend, 
-                                     ESC_BOLD + ESC_GREEN,
-                                     humanize_time(counter_tet),
-                                     humanize_speed(counter_speed.value), 
-                                     counter_count.value)
+        s_c = "{}{}{} [{}] {}#{} - ".format(ESC_NO_CHAR_ATTR,
+                                            COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
+                                            humanize_time(counter_tet),
+                                            humanize_speed(counter_speed.value),
+                                            COLTHM['BAR_COL'],
+                                            str(counter_count.value) + ESC_DEFAULT)
 
         if width == 'auto':
-            width = get_terminal_width()        
+            width = get_terminal_width()
         
-        if max_count_value != 0:
-            s_c += ' - '
-        
-            if max_count_value is None:
-                s_c = "{}{} [{}] #{}    ".format(s_c, humanize_time(tet), humanize_speed(speed), count_value)            
+        if (max_count_value is None) or (max_count_value == 0):
+            s_c = "{}{} [{}] {}#{}    ".format(s_c,
+                                               humanize_time(tet),
+                                               humanize_speed(speed),
+                                               COLTHM['BAR_COL'],
+                                               str(count_value)+ ESC_DEFAULT)
+        else:
+            if ttg is None:
+                s3 = " TTG --"
             else:
-                if ttg is None:
-                    s3 = "] TTG --"
-                else:
-                    s3 = "] TTG {}".format(humanize_time(ttg))
-                   
-                s1 = "{} [{}] [".format(humanize_time(tet), humanize_speed(speed))
-                
-                l = len_string_without_ESC(s1 + s3 + s_c)
-                l2 = width - l - 1
-                
-                a = int(l2 * count_value / max_count_value)
-                b = l2 - a
-                s2 = "="*a + ">" + " "*b
-                s_c = s_c+s1+s2+s3
+                s3 = " TTG {}".format(humanize_time(ttg))
 
-        print(s_c + ' '*(width - len_string_without_ESC(s_c)))
+            s1 = "{} [{}] ".format(humanize_time(tet), humanize_speed(speed))
+
+            l = len_string_without_ESC(s1 + s3 + s_c)
+            l2 = width - l - 3
+
+            a = int(l2 * count_value / max_count_value)
+            b = l2 - a
+            s2 = COLTHM['BAR_COL'] + ESC_BOLD + "[" + "=" * a + ">" + " " * b + "]" + ESC_RESET_BOLD + ESC_DEFAULT
+            s_c = s_c+s1+s2+s3
+
+        print(s_c)
 
 class ProgressBarFancy(Progress):
     """
@@ -1084,17 +1090,18 @@ class ProgressBarFancy(Progress):
 
     @staticmethod        
     def _stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
-        if max_count_value is None:
+        if (max_count_value is None) or (max_count_value == 0):
             # only show current absolute progress as number and estimated speed
-            stat = "{}{} [{}] #{}    ".format(prepend, humanize_time(tet), humanize_speed(speed), count_value) 
+            stat = "{}{} [{}] {}#{}    ".format(COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
+                                                humanize_time(tet),
+                                                humanize_speed(speed),
+                                                COLTHM['BAR_COL'],
+                                                str(count_value) + ESC_DEFAULT)
         else:
             if width == 'auto':
                 width = get_terminal_width()
             # deduce relative progress
-            try:
-                p = count_value / max_count_value
-            except ZeroDivisionError:
-                p = 1
+            p = count_value / max_count_value
             if p < 1:
                 ps = " {:.1%} ".format(p)
             else:
@@ -1131,7 +1138,6 @@ class ProgressBarFancy(Progress):
             if res is not None:
                 s1, s2, d1, d2 = res                
                 s = s1 + ' '*d1 + ps + ' '*d2 + s2
-
                 s_before = s[:math.ceil(width*p)].replace(' ', repl_ch)
                 if (len(s_before) > 0) and (s_before[-1] == repl_ch):
                     s_before = s_before[:-1] + '>'
@@ -1139,7 +1145,9 @@ class ProgressBarFancy(Progress):
                 
                 s_before = ProgressBarFancy.kw_bold(s_before, ch_after=[repl_ch, '>'])
                 s_after = ProgressBarFancy.kw_bold(s_after, ch_after=[' '])
-                stat = prepend + ESC_BOLD + '[' + ESC_RESET_BOLD + ESC_LIGHT_GREEN + s_before + ESC_DEFAULT + s_after + ESC_BOLD + ']' + ESC_NO_CHAR_ATTR
+                stat = (COLTHM['PRE_COL']+prepend+ESC_DEFAULT+
+                        COLTHM['BAR_COL']+ESC_BOLD + '[' + ESC_RESET_BOLD + s_before + ESC_DEFAULT +
+                        s_after + ESC_BOLD + COLTHM['BAR_COL']+']' + ESC_NO_CHAR_ATTR)
             else:
                 ps = ps.strip()
                 if p == 1:
@@ -1159,27 +1167,25 @@ class ProgressBarCounterFancy(ProgressBarCounter):
         counter_count = kwargs['counter_count'][i]
         counter_speed = kwargs['counter_speed'][i]
         counter_tet = time.time() - kwargs['init_time']
-        
-        s_c = "{}{}{}{} {:>12} #{}".format(ESC_RED,
-                                           prepend, 
-                                           ESC_NO_CHAR_ATTR,
-                                           humanize_time(counter_tet),
-                                           '['+humanize_speed(counter_speed.value)+']', 
-                                           counter_count.value)
+
+        s_c = "{}{}{} [{}] {}#{} - ".format(ESC_NO_CHAR_ATTR,
+                                            COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
+                                            humanize_time(counter_tet),
+                                            humanize_speed(counter_speed.value),
+                                            COLTHM['BAR_COL'],
+                                            str(counter_count.value) + ESC_DEFAULT)
 
         if width == 'auto':
             width = get_terminal_width()        
-        
-        if max_count_value != 0:
-            s_c += ' '
-        
-            if max_count_value is None:
-                s_c = "{}{} {:>12} #{}    ".format(s_c, humanize_time(tet), '['+humanize_speed(speed)+']', count_value)            
-            else:
-                _width = width - len_string_without_ESC(s_c)
-                s_c += ProgressBarFancy._stat(count_value, max_count_value, '', speed, tet, ttg, _width, i)
 
-        print(s_c + ' '*(width - len_string_without_ESC(s_c))) 
+        if (max_count_value is None) or (max_count_value == 0):
+            s_c = "{}{} [{}] {}#{}    ".format(s_c, humanize_time(tet), humanize_speed(speed),
+                                               COLTHM['BAR_COL'], str(count_value)+ESC_DEFAULT)
+        else:
+            _width = width - len_string_without_ESC(s_c)
+            s_c += ProgressBarFancy._stat(count_value, max_count_value, '', speed, tet, ttg, _width, i)
+
+        print(s_c)
                         
 
 class SIG_handler_Loop(object):
@@ -1406,13 +1412,54 @@ def remove_ESC_SEQ_from_string(s):
     #     s = s.replace(esc_seq, '')
     # return s
 
+def _close_kind(stack, which_kind):
+    stack_tmp = []
+    s = ""
+
+    # close everything until which_kind is found
+    while True:
+        kind, start, end = stack.pop()
+        if kind != which_kind:
+            s += end
+            stack_tmp.append(kind, start, end)
+        else:
+            break
+
+    # close which_kind
+    s = end
+
+    # start everything that was closed before which_kind
+    for kind, start, end in stack_tmp:
+        s += start
+        stack.append(kind, start, end)
+
+    return s
+
+def _close_all(stack):
+    s = ""
+    for kind, start, end in stack:
+        s += end
+    return s
+
+def _open_color(stack, color):
+    start = '<span style="color:{}">'.format(color)
+    end = '</span>'
+    stack.append(('color', start, end))
+    return start
+
+def _open_bold(stack):
+    start = '<b>'
+    end = '</b>'
+    stack.append(('bold', start, end))
+    return start
+
 def ESC_SEQ_to_HTML(s):
     old_idx = 0
     new_s = ""
     ESC_CHAR_START = "\033["
     color_on = False
     bold_on = False
-    end_tags = []
+    stack = []
     while True:
         idx = s.find(ESC_CHAR_START, old_idx)
         if idx == -1:
@@ -1424,54 +1471,36 @@ def ESC_SEQ_to_HTML(s):
         new_s += s[old_idx:idx]
         old_idx = idx + j + 1
         escseq = s[idx:idx+j+1]
-        if escseq in ESC_COLOR_TO_HTML:
+
+        if escseq in ESC_COLOR_TO_HTML:  # set color
             if color_on:
-                poped_bold = False
-                while end_tags[-1] != '</span>':
-                    _t = end_tags.pop()
-                    if _t == '</b>':
-                        poped_bold = True
-                    new_s += _t
-                new_s += end_tags.pop()
-
-                if poped_bold:
-                    new_s += '<b>'
-                    end_tags.append('</b>')
-
-            new_s += '<span style="color:{}">'.format(ESC_COLOR_TO_HTML[escseq])
-            end_tags.append('</span>')
+                new_s += _close_kind(stack, which_kind = 'color')
+            new_s += _open_color(stack, ESC_COLOR_TO_HTML[escseq])
             color_on = True
-        elif escseq == ESC_DEFAULT:
+        elif escseq == ESC_DEFAULT:      # unset color
             if color_on:
-                poped_bold = False
-                while end_tags[-1] != '</span>':
-                    _t = end_tags.pop()
-                    if _t == '</b>':
-                        poped_bold = True
-                    new_s += _t
-                new_s += end_tags.pop()
-
-                if poped_bold:
-                    new_s += '<b>'
-                    end_tags.append('</b>')
-
-        elif escseq == ESC_NO_CHAR_ATTR:
-            while len(end_tags) > 0:
-                new_s += end_tags.pop()
-            color_on = False
-            bold_on = False
-
+                new_s += _close_kind(stack, which_kind = 'color')
+                color_on = False
         elif escseq == ESC_BOLD:
             if not bold_on:
-                new_s += '<b>'
-                end_tags.append('</b>')
+                new_s += _open_bold(stack)
                 bold_on = True
+        elif escseq == ESC_RESET_BOLD:
+            if bold_on:
+                new_s += _close_kind(stack, which_kind = 'bold')
+                bold_on = False
+        elif escseq == ESC_NO_CHAR_ATTR:
+            if color_on:
+                new_s += _close_kind(stack, which_kind = 'color')
+                color_on = False
+            if bold_on:
+                new_s += _close_kind(stack, which_kind = 'bold')
+                bold_on = False
         else:
             pass
 
     new_s += s[old_idx:]
-    while len(end_tags) > 0:
-        new_s += end_tags.pop()
+    new_s += _close_all(stack)
 
     return new_s
 
@@ -1658,6 +1687,21 @@ ESC_SEQ_SET = [ESC_NO_CHAR_ATTR,
                ESC_LIGHT_MAGENTA,
                ESC_LIGHT_CYAN,
                ESC_WHITE]
+
+_colthm_term_default = {'PRE_COL': ESC_RED, 'BAR_COL': ESC_LIGHT_GREEN}
+_colthm_ipyt_default = {'PRE_COL': ESC_RED, 'BAR_COL': ESC_LIGHT_BLUE}
+
+color_themes = {'term_default': _colthm_term_default,
+                'ipyt_default': _colthm_ipyt_default}
+
+COLTHM = _colthm_term_default
+def choose_color_theme(name):
+    global COLTHM
+    if name in color_themes:
+        COLTHM = color_themes[name]
+    else:
+        warnings.warn("no such color theme {}".format(name))
+
 
 # terminal reservation list, see terminal_reserve
 TERMINAL_RESERVATION = {}
