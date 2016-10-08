@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-progression
+Progression
 ===========
 
 An advanced progress bar in ASCII art which features
@@ -23,7 +23,7 @@ the widgets extension
 
 an html variant of the ASCII art progress is available.
 
-getting progression:
+Getting progression:
 -------------------
 
 use the `latest version from PyPi <https://pypi.python.org/pypi/progression>`_ via
@@ -37,7 +37,7 @@ which should in principle be stable
 
     git clone https://github.com/cimatosa/progression.git
 
-feedback:
+Feedback:
 --------
 
 feel free to drop a line in the `GitHub Issue section <https://github.com/cimatosa/progression/issues>`_

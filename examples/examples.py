@@ -148,7 +148,7 @@
         5) speed of the current run
         6) time to go for the current run
 
-    a multi ProgressBarFancy
+    A multi ProgressBarFancy
     ------------------------
 
     When monitoring several processes in parallel simply replace
