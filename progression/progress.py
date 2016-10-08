@@ -1,39 +1,81 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import division, print_function
-import warnings
 
-import copy
 import datetime
-from distutils import version
+import io
 import logging
-# try:
-#     from logging.handlers import QueueHandler
-#     from logging.handlers import QueueListener
-# except ImportError:
-#     warnings.warn("could not load QueueHandler/QueueListener (python version too old\n"+
-#                   "no coheerent subprocess logging pissible", ImportWarning)
 import math
 import multiprocessing as mp
-import threading
-
-from multiprocessing.sharedctypes import Synchronized
+from   multiprocessing.sharedctypes import Synchronized
+import os
+import sys
 import signal
 import subprocess as sp
-import sys
+import threading
 import time
 import traceback
-import os
-import io
+import warnings
 
-# restore python2 compatibility
-if sys.version_info[0] == 2:
+_IPYTHON = True
+try:
+    import ipywidgets
+except:
+    _IPYTHON = False
+    warnings.warn("could not load ipywidgets (IPython HTML output will not work)", category=ImportWarning)
+try:
+    from IPython.display import display
+except:
+    _IPYTHON = False
+    warnings.warn("could not load  IPython (IPython HTML output will not work)", category=ImportWarning)
+
+
+class MultiLineFormatter(logging.Formatter):
+    """pads a multiline log message with spaces such that
+
+     <HEAD> msg_line1
+            msg_line2
+             ...
+    """
+    def format(self, record):
+        _str = logging.Formatter.format(self, record)
+        header = _str.split(record.message)[0]
+        _str = _str.replace('\n', '\n' + ' '*len(header))
+        return _str
+
+def_handl = logging.StreamHandler(stream = sys.stderr)          # the default handler simply uses stderr
+def_handl.setLevel(logging.DEBUG)                               # ... listens to all messaged
+fmt = MultiLineFormatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
+def_handl.setFormatter(fmt)                                     # ... and pads multiline messaged
+log = logging.getLogger(__name__)                               # creates the default log for this module
+log.addHandler(def_handl)
+
+if sys.version_info[0] == 2:         # minor hacks to be python 2 and 3 compatible
     ProcessLookupError = OSError
     inMemoryBuffer = io.BytesIO
 elif sys.version_info[0] == 3:
     inMemoryBuffer = io.StringIO
 
+
 class StdoutPipe(object):
+    """replacement for stream objects such as stdout which
+        forwards all incoming data using the send method of a
+        connection
+
+        example usage:
+
+            >>> import sys
+            >>> from multiprocessing import Pipe
+            >>> from progression import StdoutPipe
+            >>> conn_recv, conn_send = Pipe(False)
+            >>> sys.stdout = StdoutPipe(conn_send)
+            >>> print("hallo welt", end='')  # this is no going through the pipe
+            >>> msg = conn_recv.recv()
+            >>> sys.stdout = sys.__stdout__
+            >>> print(msg)
+            hallo welt
+            >>> assert msg == "hallo welt"
+    """
     def __init__(self, conn):
         self.conn = conn
         
@@ -47,8 +89,9 @@ class PipeToPrint(object):
         print(b, end='')
 
 class PipeFromProgressToIPythonHTMLWidget(object):
-    def __init__(self, htmlWidget):
-        self.htmlWidget = htmlWidget
+    def __init__(self):
+        self.htmlWidget = ipywidgets.widgets.HTML()
+        display(self.htmlWidget)
         self._buff = ""
     def __call__(self, b):
         self._buff += b
@@ -56,22 +99,17 @@ class PipeFromProgressToIPythonHTMLWidget(object):
             buff = ESC_SEQ_to_HTML(self._buff)
             self.htmlWidget.value = '<style>.widget-html{font-family:monospace;white-space:pre}</style>'+buff
             self._buff = ""
-        
 
-class MultiLineFormatter(logging.Formatter):
-    def format(self, record):
-        _str = logging.Formatter.format(self, record)
-        header = _str.split(record.message)[0]
-        _str = _str.replace('\n', '\n' + ' '*len(header))
-        return _str
-
-
-def_handl = logging.StreamHandler(stream = sys.stderr)
-def_handl.setLevel(logging.DEBUG)
-fmt = MultiLineFormatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
-def_handl.setFormatter(fmt)
-log = logging.getLogger(__name__)
-log.addHandler(def_handl)
+PipeHandler = PipeToPrint
+def choose_pipe_handler(kind = 'print'):
+    global PipeHandler
+    if kind == 'print':
+        PipeHandler = PipeToPrint
+    elif kind == 'ipythonHTML':
+        if _IPYTHON:
+            PipeHandler = PipeFromProgressToIPythonHTMLWidget
+        else:
+            warnings.warn("can not choose ipythonHTML (IPython and/or ipywidgets were not loaded)")
 
 try:
     from shutil import get_terminal_size as shutil_get_terminal_size
@@ -148,8 +186,7 @@ class Loop(object):
                  sigint                   = 'stop',
                  sigterm                  = 'stop',
                  auto_kill_on_last_resort = False,
-                 raise_error              = True,
-                 pipe_handler             = PipeToPrint()):
+                 raise_error              = True):
         """
         func [callable] - function to be called periodically
         
@@ -192,7 +229,7 @@ class Loop(object):
         log.debug("auto_kill_on_last_resort = %s", self._auto_kill_on_last_resort)
         
         self._monitor_thread = None
-        self.pipe_handler = pipe_handler
+        self.pipe_handler = PipeHandler()
         self.raise_error = raise_error
 
     def __enter__(self):
@@ -424,7 +461,7 @@ class Progress(Loop):
     which may not be supported by all terminal emulators.
     
     example:
-       
+
         c1 = UnsignedIntValue(val=0)
         c2 = UnsignedIntValue(val=0)
     
@@ -459,8 +496,7 @@ class Progress(Loop):
                  verbose           = None,
                  sigint            = 'stop', 
                  sigterm           = 'stop',
-                 info_line         = None,
-                 pipe_handler      = PipeToPrint()):
+                 info_line         = None):
         """       
         count [mp.Value] - shared memory to hold the current state, (list or single value)
         
@@ -501,14 +537,14 @@ class Progress(Loop):
         if max_count is not None:
             if self.is_multi:
                 try:
-                    for m in max_count:
+                    for i, m in enumerate(max_count):
                         if not isinstance(m, Synchronized):
-                            raise ValueError("each element of 'max_count' must be if the type multiprocessing.sharedctypes.Synchronized")
+                            max_count[i] = UnsignedIntValue(m)
                 except TypeError:
                     raise TypeError("'max_count' must be iterable")
             else:
                 if not isinstance(max_count, Synchronized):
-                    raise ValueError("'max_count' must be of the type multiprocessing.sharedctypes.Synchronized")
+                    max_count = UnsignedIntValue(max_count)
                 max_count = [max_count]
         else:
             max_count = [None] * self.len
@@ -572,8 +608,7 @@ class Progress(Loop):
                       interval = interval,
                       sigint   = sigint,
                       sigterm  = sigterm,
-                      auto_kill_on_last_resort = True,
-                      pipe_handler             = pipe_handler)
+                      auto_kill_on_last_resort = True)
 
     def __exit__(self, *exc_args):
         self.stop()
@@ -822,13 +857,16 @@ class Progress(Loop):
         terminal_unreserve(progress_obj=self, verbose=self.verbose)
 
         if self.show_on_exit:
-            myout = inMemoryBuffer()
-            stdout = sys.stdout
-            sys.stdout = myout
-            self._show_stat()
-            self.pipe_handler(myout.getvalue())
-            print()
-            sys.stdout = stdout
+            if not isinstance(self.pipe_handler, PipeToPrint):
+                myout = inMemoryBuffer()
+                stdout = sys.stdout
+                sys.stdout = myout
+                self._show_stat()
+                self.pipe_handler(myout.getvalue())
+                sys.stdout = stdout
+            else:
+                self._show_stat()
+                print()
         self.show_on_exit = False
         
 
@@ -1107,7 +1145,7 @@ class ProgressBarFancy(Progress):
                 if p == 1:
                     ps = ' '+ps
                 stat = prepend + ps
-        
+
         return stat
 
     @staticmethod        

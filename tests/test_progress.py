@@ -16,7 +16,7 @@ import io
 import warnings
 
 warnings.filterwarnings('error')
-# warnings.filterwarnings('always', category=ImportWarning)
+warnings.filterwarnings('ignore', category=ImportWarning)
 
 
 # setup path to import progression
@@ -1062,6 +1062,21 @@ def test_ESC_SEQ():
     s_html = progression.ESC_SEQ_to_HTML(s)
     print(s_html)
 
+def test_example_StdoutPipe():
+    import sys
+    from multiprocessing import Pipe
+    from progression import StdoutPipe
+    conn_recv, conn_send = Pipe(False)
+    sys.stdout = StdoutPipe(conn_send)
+
+    print("hallo welt", end='')  # this is no going through the pipe
+    msg = conn_recv.recv()
+    sys.stdout = sys.__stdout__
+
+    print(msg)
+    assert msg == "hallo welt"
+
+
 
 if __name__ == "__main__":
     func = [    
@@ -1079,7 +1094,7 @@ if __name__ == "__main__":
 #     test_loop_need_sigterm_to_stop,
 #     test_loop_need_sigkill_to_stop,
 #     test_why_with_statement,
-    test_progress_bar,
+#     test_progress_bar,
 #     test_progress_bar_with_statement,
 #     test_progress_bar_multi,
 #     test_status_counter,
@@ -1103,6 +1118,7 @@ if __name__ == "__main__":
 #     test_get_identifier,
 #     test_stopping_loop,
 #         test_ESC_SEQ,
+        test_example_StdoutPipe,
     lambda: print("END")
     ]
     
