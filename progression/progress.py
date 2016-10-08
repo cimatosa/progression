@@ -1421,7 +1421,7 @@ def _close_kind(stack, which_kind):
         kind, start, end = stack.pop()
         if kind != which_kind:
             s += end
-            stack_tmp.append(kind, start, end)
+            stack_tmp.append((kind, start, end))
         else:
             break
 
@@ -1431,7 +1431,7 @@ def _close_kind(stack, which_kind):
     # start everything that was closed before which_kind
     for kind, start, end in stack_tmp:
         s += start
-        stack.append(kind, start, end)
+        stack.append((kind, start, end))
 
     return s
 
