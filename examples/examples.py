@@ -165,6 +165,29 @@
         _3_:[E-947.64ms----[20.0c/s]-G-1.00s--------76.0%------>  O 1.95s]
         _4_:[E-160.46ms--->[31.2c/s] G 1.00s        20.0%         O 1.16s]
 
+    ProgressBar and IPython notebook
+    --------------------------------
+
+    Running any kind of ProgressBar in an IPython notebook will result in new lines
+    for each status message as moving the cursor is not supported. This problem can
+    be circumvented by selecting a special PipeHandler.
+    ::
+
+        progression.choose_pipe_handler('ipythonhtml')
+
+    Doing so will forward the output from ProgressBar (any subclass of :py:class:`.Loop`) to an
+    `ipywidget HTML object <http://ipywidgets.readthedocs.io/en/latest/examples/Widget%20List.html#HTML>`_.
+    Such an object will be created and displayed whenever a ProgressBar gets started. The terminal style and coloring
+    is converted to pure HTML.
+
+    .. raw:: html
+
+        <div class="jupyter-widgets widget-html"><style>.widget-html{font-family:monospace;white-space:pre}</style><span style="color:#800000">_1_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-588.75ms----[23.8c/s]-<b>G</b>-1.00s--&gt;</span>  56.0%      <b>O</b> 1.59s<b><span style="color:#0000ff">]</span></b>
+        <span style="color:#800000">_2_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-907.35ms----[17.6c/s]-<b>G</b>-1.00s-----64.</span>0%      <b>O</b> 1.91s<b><span style="color:#0000ff">]</span></b>
+        <span style="color:#800000">_3_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-161</span>.35ms    [12.4c/s] <b>G</b> 2.00s      8.0%      <b>O</b> 2.16s<b><span style="color:#0000ff">]</span></b>
+        <span style="color:#800000">_4_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-183.51ms</span>    [21.8c/s] <b>G</b> 1.00s     16.0%      <b>O</b> 1.18s<b><span style="color:#0000ff">]</span></b>
+        </div>
+
 """
 
 from __future__ import division, print_function
@@ -200,7 +223,7 @@ def run_example_ProgressBarFancy():
     import progression as pr
     N = 200000
     c = pr.UnsignedIntValue()        # counter (shared uint)
-    m = pr.UnsignedIntValue(N)       # the maximum value for
+    m = pr.UnsignedIntValue()        # the maximum value for
                                      # counter, now also shared
     with pr.ProgressBarFancy(count = c, max_count = m) as pb:
         pb.start()
@@ -288,16 +311,19 @@ def run_example_ProgressBarFancy_multi():
     with pr.ProgressBarFancy(count     = count,
                              max_count = max_count,
                              interval  = 0.3,
-                             prepend   = prepend) as sbm:
+                             prepend   = prepend,
+                             width     = 60) as sbm:
         sbm.start()
         tocrunch(count, max_count)
 
 
-
 if __name__ == "__main__":
+    # import logging
+    # pr.log.setLevel(logging.DEBUG)
     # run_example_ProgressBar()
     # run_example_ProgressBarFancy()
     # run_example_ProgressBarDecorator()
     # run_example_max_count_is_none()
     # run_example_ProgressBarCounter()
-    run_example_ProgressBarFancy_multi()
+    # run_example_ProgressBarFancy_multi()
+    pass
