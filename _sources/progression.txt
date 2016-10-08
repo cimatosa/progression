@@ -1,4 +1,4 @@
-package domumentation
+Package domumentation
 =====================
 
 .. toctree::

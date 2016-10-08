@@ -6,7 +6,7 @@
 .. automodule:: progression
 
   
-contents:
+Contents:
 ---------
 
 .. toctree::
