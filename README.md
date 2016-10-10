@@ -9,7 +9,17 @@ An advanced progress bar in ASCII art which features
   * speed and estimated time of arrival
   * multiple bars
   * auto adjustment to the available terminal width
+  * IPython notebook html output available
+
+If you have one or more time consuming processes running and want to 
+keep track of the current state, get an estimate on when the process 
+is going to finish or if you just like statistics this package does the job.
+
+![progress example](prog.svg)
+
+It is pure python. It runs with python version 2 and 3. 
+If you have IPython (and ipywidgets) installed and enable the widgets extension
+an html variant of the ASCII art progress is available.
 
 
-Further information (install, examples and doc) can be found
-[here](https://cimatosa.github.io/progression/).
+[Further reading (install, examples and co) in the docs](https://cimatosa.github.io/progression/)
