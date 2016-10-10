@@ -308,8 +308,7 @@ def test_why_with_statement():
             l.raise_runtimeError()
             l.stop()
         finally:
-            if l.getpid() is not None:
-                os.kill(l.getpid(), signal.SIGKILL)            
+            _kill_pid(l.getpid())            
         
     def t_with(shared_mem_pid):
         with ErrorLoop(func=normal_function, interval=INTERVAL) as l:
@@ -320,8 +319,7 @@ def test_why_with_statement():
                 l.raise_runtimeError()
                 l.stop()
             finally:
-                if l.getpid() is not None:
-                    os.kill(l.getpid(), signal.SIGKILL)                
+                _kill_pid(l.getpid())               
         
     print("## start without with statement ...")
     
@@ -352,12 +350,9 @@ def test_why_with_statement():
     except:
         pass
     else:
-        if p_sub.is_running():
-            os.kill(subproc_pid.value, signal.SIGKILL)        
+        _kill_pid(subproc_pid.value)       
     finally:
-        if p.is_alive():
-            os.kill(p.pid, signal.SIGKILL)
-
+        _kill_pid(p.pid)
     
     time.sleep(INTERVAL)
     
@@ -371,14 +366,8 @@ def test_why_with_statement():
     try:
         assert not p.is_alive()
     finally:
-        if p.is_alive():
-            # kill loop
-            p_sub = psutil.Process(subproc_pid.value)
-            if p_sub.is_running():
-                os.kill(subproc_pid.value, signal.SIGKILL)    
-            # kill sub process
-            os.kill(p.pid, signal.SIGKILL)
-    
+        _kill_pid(subproc_pid.value)      
+        _kill_pid(p.pid)   
     
 def test_progress_bar():
     """
