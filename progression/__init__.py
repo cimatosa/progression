@@ -24,7 +24,7 @@ the widgets extension
 an html variant of the ASCII art progress is available.
 
 Getting progression:
--------------------
+--------------------
 
 use the `latest version from PyPi <https://pypi.python.org/pypi/progression>`_ via
 ::
@@ -38,7 +38,7 @@ which should in principle be stable
     git clone https://github.com/cimatosa/progression.git
 
 Feedback:
---------
+---------
 
 feel free to drop a line in the `GitHub Issue section <https://github.com/cimatosa/progression/issues>`_
 """

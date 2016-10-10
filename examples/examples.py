@@ -11,7 +11,7 @@
 
     Let's use ``factorial`` as an example function.
 
-    .. literalinclude:: examples/examples.py
+    .. literalinclude:: ../examples/examples.py
         :pyobject: factorial
 
     Any function that is supposed to be monitored by one of the classes of the progression package
@@ -43,7 +43,7 @@
 
         4) trigger the calculation where ``c`` is passed to the calculating function
 
-    .. literalinclude:: examples/examples.py
+    .. literalinclude:: ../examples/examples.py
         :pyobject: run_example_ProgressBar
 
     The output will look like this (here without colors):
@@ -66,7 +66,7 @@
     the maximum value of counter, which allows to set max_count
     after the ProgressPar has started, even by the calculating function.
 
-    .. literalinclude:: examples/examples.py
+    .. literalinclude:: ../examples/examples.py
         :pyobject: run_example_ProgressBarFancy
 
     The output reads something like this:
@@ -87,7 +87,7 @@
 
     Modification of the original ``factorial`` function as follows
 
-    .. literalinclude:: examples/examples.py
+    .. literalinclude:: ../examples/examples.py
         :pyobject: factorial_dec
 
     and decorating this function with
@@ -113,7 +113,7 @@
     only the elapsed time, the current speed and the value of count
     will be shown.
 
-    .. literalinclude:: examples/examples.py
+    .. literalinclude:: ../examples/examples.py
         :pyobject: run_example_max_count_is_none
 
     .. code-block:: none
@@ -132,7 +132,7 @@
     For doing so choose :py:class:`.ProgressBarCounter` or :py:class:`.ProgressBarFancyCounter` and trigger ``reset()`` every time
     the functions returns.
 
-    .. literalinclude:: examples/examples.py
+    .. literalinclude:: ../examples/examples.py
         :pyobject: run_example_ProgressBarCounter
 
     .. code-block:: none
@@ -154,7 +154,7 @@
     When monitoring several processes in parallel simply replace
     count and max_count by lists of sharedctypes.
 
-    .. literalinclude:: examples/examples.py
+    .. literalinclude:: ../examples/examples.py
         :pyobject: run_example_ProgressBarFancy_multi
 
 
