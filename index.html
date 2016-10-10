@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Contents: &mdash; progression 3 documentation</title>
+  <title>Progression &mdash; progression 3 documentation</title>
   
 
   
@@ -116,7 +116,7 @@
   <ul class="wy-breadcrumbs">
     <li><a href="#">Docs</a> &raquo;</li>
       
-    <li>Contents:</li>
+    <li>Progression</li>
       <li class="wy-breadcrumbs-aside">
         
           
@@ -130,7 +130,55 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <span class="target" id="module-progression"></span><div class="section" id="contents">
+  <span class="target" id="module-progression"></span><div class="section" id="progression">
+<h1>Progression<a class="headerlink" href="#progression" title="Permalink to this headline">¶</a></h1>
+<p>An advanced progress bar in ASCII art which features</p>
+<blockquote>
+<div><ul class="simple">
+<li>speed and estimated time of arrival</li>
+<li>multiple bars</li>
+<li>auto adjustment to the available terminal width</li>
+<li>IPython notebook html output available</li>
+</ul>
+</div></blockquote>
+<p>If you have one or more time consuming processes running and want to keep track of the current state,
+get an estimate on when the process is going to finish
+or if you just like statistics this package does the job.</p>
+<div class="jupyter-widgets widget-html">
+<style>.widget-html{font-family:monospace;
+                    color: #c0c0c0;
+                    white-space:pre;
+                    background-color:black}</style>
+<span style="color:#800000">  _1_:</span><span style="color:#00ff00"><b>[</b><b>E</b>-588.75ms----[23.8c/s]-<b>G</b>-1.00s--&gt;</span>  56.0%      <b>O</b> 1.59s<b><span style="color:#00ff00">]</span></b>
+<span style="color:#800000">  _2_:</span><span style="color:#00ff00"><b>[</b><b>E</b>-907.35ms----[17.6c/s]-<b>G</b>-1.00s-----64.</span>0%      <b>O</b> 1.91s<b><span style="color:#00ff00">]</span></b>
+<span style="color:#800000">  _3_:</span><span style="color:#00ff00"><b>[</b><b>E</b>-161</span>.35ms    [12.4c/s] <b>G</b> 2.00s      8.0%      <b>O</b> 2.16s<b><span style="color:#00ff00">]</span></b>
+<span style="color:#800000">  _4_:</span><span style="color:#00ff00"><b>[</b><b>E</b>-183.51ms</span>    [21.8c/s] <b>G</b> 1.00s     16.0%      <b>O</b> 1.18s<b><span style="color:#00ff00">]</span></b>
+<br>
+</div>
+<br><p>It is pure python. It runs with python version 2 and 3. If you have IPython (and ipywidgets) installed and enable
+the widgets extension</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">jupyter</span> <span class="n">nbextension</span> <span class="n">enable</span> <span class="o">--</span><span class="n">py</span> <span class="o">--</span><span class="n">sys</span><span class="o">-</span><span class="n">prefix</span> <span class="n">widgetsnbextension</span>
+</pre></div>
+</div>
+<p>an html variant of the ASCII art progress is available.</p>
+<div class="section" id="getting-progression">
+<h2>Getting progression:<a class="headerlink" href="#getting-progression" title="Permalink to this headline">¶</a></h2>
+<p>use the <a class="reference external" href="https://pypi.python.org/pypi/progression">latest version from PyPi</a> via</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">progression</span>
+</pre></div>
+</div>
+<p>or grab the master branch from the <a class="reference external" href="https://github.com/cimatosa/progression">GitHub repo</a>
+which should in principle be stable</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">cimatosa</span><span class="o">/</span><span class="n">progression</span><span class="o">.</span><span class="n">git</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="feedback">
+<h2>Feedback:<a class="headerlink" href="#feedback" title="Permalink to this headline">¶</a></h2>
+<p>feel free to drop a line in the <a class="reference external" href="https://github.com/cimatosa/progression/issues">GitHub Issue section</a></p>
+</div>
+</div>
+<div class="section" id="contents">
 <h1>Contents:<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 <ul>
