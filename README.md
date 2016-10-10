@@ -15,7 +15,7 @@ If you have one or more time consuming processes running and want to
 keep track of the current state, get an estimate on when the process 
 is going to finish or if you just like statistics this package does the job.
 
-![progress example](prog.svg)
+![example progress](https://cimatosa.github.io/progression/prog.svg)
 
 It is pure python. It runs with python version 2 and 3. 
 If you have IPython (and ipywidgets) installed and enable the widgets extension
