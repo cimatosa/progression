@@ -28,6 +28,7 @@ or if you just like statistics this package does the job.
     <span style="color:#800000">  _4_:</span><span style="color:#00ff00"><b>[</b><b>E</b>-183.51ms</span>    [21.8c/s] <b>G</b> 1.00s     16.0%      <b>O</b> 1.18s<b><span style="color:#00ff00">]</span></b>
     <br>
     </div>
+    <br>
 
 It is pure python. It runs with python version 2 and 3. If you have IPython (and ipywidgets) installed and enable
 the widgets extension
