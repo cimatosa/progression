@@ -52,6 +52,15 @@ look <a class="reference internal" href="progression.html"><span class="doc">her
 <div class="section" id="the-function-to-monitor">
 <h2>The function to monitor<a class="headerlink" href="#the-function-to-monitor" title="Permalink to this headline">¶</a></h2>
 <p>Let&#8217;s use <code class="docutils literal"><span class="pre">factorial</span></code> as an example function.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">factorial</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">N</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>   <span class="c1"># becasue the multiplication of two</span>
+        <span class="n">f</span> <span class="o">*=</span> <span class="n">i</span>                <span class="c1"># integers is faster than</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">1000</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>     <span class="c1"># settings the value of an sharedctype</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">i</span>       <span class="c1"># c gets updated only every 1000 steps</span>
+    <span class="k">return</span> <span class="n">f</span>
+</pre></div>
+</div>
 <p>Any function that is supposed to be monitored by one of the classes of the progression package
 needs to have at least one argument that serves as a counter (for <code class="docutils literal"><span class="pre">factorial</span></code> denoted by <code class="docutils literal"><span class="pre">c</span></code>). It needs to be a
 <a class="reference external" href="https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing.sharedctypes">sharedctype</a>
@@ -84,6 +93,19 @@ that everything gets shutdown on exit</p>
 </li>
 </ol>
 </div></blockquote>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">run_example_ProgressBar</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">progression</span> <span class="k">as</span> <span class="nn">pr</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="mi">200000</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">UnsignedIntValue</span><span class="p">()</span>            <span class="c1"># counter for factorial</span>
+    <span class="k">with</span> <span class="n">pr</span><span class="o">.</span><span class="n">ProgressBar</span><span class="p">(</span><span class="n">count</span>     <span class="o">=</span> <span class="n">c</span><span class="p">,</span>   <span class="c1"># (shared uint)</span>
+                        <span class="n">max_count</span> <span class="o">=</span> <span class="n">N</span><span class="p">,</span>
+                        <span class="n">interval</span>  <span class="o">=</span> <span class="mf">0.3</span>  <span class="c1"># the refresh time in secs.</span>
+                                         <span class="c1"># the default is 1s</span>
+                        <span class="p">)</span> <span class="k">as</span> <span class="n">pb</span><span class="p">:</span>
+        <span class="n">pb</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>                       <span class="c1"># start progress process</span>
+        <span class="n">factorial</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>                  <span class="c1"># doing stuff and</span>
+</pre></div>
+</div>
 <p>The output will look like this (here without colors):</p>
 <div class="highlight-none"><div class="highlight"><pre><span></span>2.41s [39078.4c/s] [=================&gt;                    ] TTG 3.00s
 
@@ -99,6 +121,18 @@ slightly more information.</p>
 <p>Further the example shows how to use a shared type for
 the maximum value of counter, which allows to set max_count
 after the ProgressPar has started, even by the calculating function.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">run_example_ProgressBarFancy</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">progression</span> <span class="k">as</span> <span class="nn">pr</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="mi">200000</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">UnsignedIntValue</span><span class="p">()</span>        <span class="c1"># counter (shared uint)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">UnsignedIntValue</span><span class="p">()</span>        <span class="c1"># the maximum value for</span>
+                                     <span class="c1"># counter, now also shared</span>
+    <span class="k">with</span> <span class="n">pr</span><span class="o">.</span><span class="n">ProgressBarFancy</span><span class="p">(</span><span class="n">count</span> <span class="o">=</span> <span class="n">c</span><span class="p">,</span> <span class="n">max_count</span> <span class="o">=</span> <span class="n">m</span><span class="p">)</span> <span class="k">as</span> <span class="n">pb</span><span class="p">:</span>
+        <span class="n">pb</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">N</span>                  <span class="c1"># set the max_count at runtime</span>
+        <span class="n">factorial</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+</pre></div>
+</div>
 <p>The output reads something like this:</p>
 <div class="highlight-none"><div class="highlight"><pre><span></span>[TET-2s-[42877.4c/s]-TTG-3s--&gt; 43.0%  ETA 20161008_14:04:31 ORT 5s]
 
@@ -113,6 +147,22 @@ ORT: estimated overall running time
 <h2>ProgressBar Decorator<a class="headerlink" href="#progressbar-decorator" title="Permalink to this headline">¶</a></h2>
 <p>To quickly add a ProgressBar to an existing function the decorators from the <a class="reference internal" href="decorators.html"><span class="doc">progression.decorators module</span></a> ease things.</p>
 <p>Modification of the original <code class="docutils literal"><span class="pre">factorial</span></code> function as follows</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">factorial_dec</span><span class="p">(</span><span class="n">N</span><span class="p">,</span>
+                  <span class="n">c</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">UnsignedIntValue</span><span class="p">(),</span>
+                  <span class="n">m</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">UnsignedIntValue</span><span class="p">()):</span>
+    <span class="c1"># for the decorator to work the function needs to have</span>
+    <span class="c1"># &#39;c&#39; and &#39;m&#39; as arguments</span>
+    <span class="c1"># when using default values for &#39;c&#39; and &#39;m&#39; the</span>
+    <span class="c1"># function call remains the same</span>
+    <span class="n">m</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">N</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="n">N</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">*=</span> <span class="n">i</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">1000</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">i</span>
+    <span class="k">return</span> <span class="n">f</span>
+</pre></div>
+</div>
 <p>and decorating this function with</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="nd">@pr</span><span class="o">.</span><span class="n">decorators</span><span class="o">.</span><span class="n">ProgressBar</span>
 </pre></div>
@@ -131,6 +181,17 @@ ORT: estimated overall running time
 <p>When the <code class="docutils literal"><span class="pre">max_count</span></code> argument of the ProgressBar is <code class="docutils literal"><span class="pre">None</span></code>
 only the elapsed time, the current speed and the value of count
 will be shown.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">run_example_max_count_is_none</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">progression</span> <span class="k">as</span> <span class="nn">pr</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">UnsignedIntValue</span><span class="p">()</span>             <span class="c1"># counter (shared uint)</span>
+    <span class="k">with</span> <span class="n">pr</span><span class="o">.</span><span class="n">ProgressBar</span><span class="p">(</span><span class="n">count</span>     <span class="o">=</span> <span class="n">c</span><span class="p">,</span>
+                        <span class="n">max_count</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># no maximum value of count</span>
+                                          <span class="c1"># known</span>
+                        <span class="p">)</span> <span class="k">as</span> <span class="n">pb</span><span class="p">:</span>
+        <span class="n">pb</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="n">factorial</span><span class="p">(</span><span class="mi">100000</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+</pre></div>
+</div>
 <div class="highlight-none"><div class="highlight"><pre><span></span>2.47s [38535.8c/s] #95000
 </pre></div>
 </div>
@@ -143,6 +204,24 @@ class counts the individual runs and estimates the speed concerning the runs. Ev
 the usual monitoring.</p>
 <p>For doing so choose <a class="reference internal" href="progress.html#progression.progress.ProgressBarCounter" title="progression.progress.ProgressBarCounter"><code class="xref py py-class docutils literal"><span class="pre">ProgressBarCounter</span></code></a> or <code class="xref py py-class docutils literal"><span class="pre">ProgressBarFancyCounter</span></code> and trigger <code class="docutils literal"><span class="pre">reset()</span></code> every time
 the functions returns.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">run_example_ProgressBarCounter</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">progression</span> <span class="k">as</span> <span class="nn">pr</span>
+    <span class="kn">import</span> <span class="nn">time</span>
+
+    <span class="n">c</span> <span class="o">=</span> <span class="n">pr</span><span class="o">.</span><span class="n">UnsignedIntValue</span><span class="p">()</span>       <span class="c1"># ... the usual set up</span>
+    <span class="k">with</span> <span class="n">pr</span><span class="o">.</span><span class="n">ProgressBarCounter</span><span class="p">(</span><span class="n">count</span>     <span class="o">=</span> <span class="n">c</span><span class="p">,</span>
+                               <span class="n">max_count</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="k">as</span> <span class="n">pb</span><span class="p">:</span>
+        <span class="n">pb</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">outer_loop</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">]:</span>        <span class="c1"># lets crunsh the</span>
+                                          <span class="c1"># innerloop 3 times</span>
+
+            <span class="k">for</span> <span class="n">iner_loop</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">11</span><span class="p">):</span> <span class="c1"># change the counter</span>
+                <span class="n">c</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">iner_loop</span>       <span class="c1"># according to the state</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.3</span><span class="p">)</span>           <span class="c1"># of the inner loop</span>
+
+            <span class="n">pb</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>                    <span class="c1"># reset the ProgressBar</span>
+</pre></div>
+</div>
 <div class="highlight-none"><div class="highlight"><pre><span></span>7.76s [20.0c/min] #2 - 1.75s [3.4c/s] [========&gt;       ] TTG 2.00s
   ^       ^        ^      ^       ^                            ^
   1       2        3      4       5                            6
@@ -160,6 +239,44 @@ the functions returns.</p>
 <h2>A multi ProgressBarFancy<a class="headerlink" href="#a-multi-progressbarfancy" title="Permalink to this headline">¶</a></h2>
 <p>When monitoring several processes in parallel simply replace
 count and max_count by lists of sharedctypes.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">run_example_ProgressBarFancy_multi</span><span class="p">():</span>
+    <span class="kn">import</span> <span class="nn">progression</span> <span class="k">as</span> <span class="nn">pr</span>
+    <span class="kn">import</span> <span class="nn">random</span>
+    <span class="kn">import</span> <span class="nn">time</span>
+
+    <span class="k">def</span> <span class="nf">tocrunch</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">400</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">get_lock</span><span class="p">():</span>        <span class="c1"># as += operator is not</span>
+                <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">value</span> <span class="o">+=</span> <span class="mi">1</span>          <span class="c1"># atomic we need a lock</span>
+                                         <span class="c1"># see docs.python.org</span>
+                                         <span class="c1"># -&gt; shared-ctypes-objects</span>
+            <span class="k">if</span> <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">value</span> <span class="o">&gt;</span> <span class="n">m</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>  <span class="c1"># once max_count is reached</span>
+                <span class="n">sbm</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>             <span class="c1"># reset the bar</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>
+
+
+    <span class="n">n</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">max_count_value</span> <span class="o">=</span> <span class="mi">25</span>
+
+    <span class="n">count</span> <span class="o">=</span> <span class="p">[]</span>          <span class="c1"># list of shared uint</span>
+    <span class="n">max_count</span> <span class="o">=</span> <span class="p">[]</span>      <span class="c1"># list of shared uint</span>
+    <span class="n">prepend</span> <span class="o">=</span> <span class="p">[]</span>        <span class="c1"># list of text to prepend each bar</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>  <span class="c1"># fill the lists</span>
+        <span class="n">count</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pr</span><span class="o">.</span><span class="n">UnsignedIntValue</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">max_count</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pr</span><span class="o">.</span><span class="n">UnsignedIntValue</span><span class="p">(</span><span class="n">max_count_value</span><span class="p">))</span>
+        <span class="n">prepend</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;_</span><span class="si">{}</span><span class="s1">_:&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="c1"># note: count and max_count are now lists of scharedctypes</span>
+    <span class="k">with</span> <span class="n">pr</span><span class="o">.</span><span class="n">ProgressBarFancy</span><span class="p">(</span><span class="n">count</span>     <span class="o">=</span> <span class="n">count</span><span class="p">,</span>
+                             <span class="n">max_count</span> <span class="o">=</span> <span class="n">max_count</span><span class="p">,</span>
+                             <span class="n">interval</span>  <span class="o">=</span> <span class="mf">0.3</span><span class="p">,</span>
+                             <span class="n">prepend</span>   <span class="o">=</span> <span class="n">prepend</span><span class="p">,</span>
+                             <span class="n">width</span>     <span class="o">=</span> <span class="mi">60</span><span class="p">)</span> <span class="k">as</span> <span class="n">sbm</span><span class="p">:</span>
+        <span class="n">sbm</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="n">tocrunch</span><span class="p">(</span><span class="n">count</span><span class="p">,</span> <span class="n">max_count</span><span class="p">)</span>
+</pre></div>
+</div>
 <div class="highlight-none"><div class="highlight"><pre><span></span>_1_:[E-589.07ms----[20.1c/s]-G-1.00s        44.0%         O 1.59s]
 _2_:[E-906.49ms----[19.7c/s]-G-1.00s--------68.0%&gt;        O 1.91s]
 _3_:[E-947.64ms----[20.0c/s]-G-1.00s--------76.0%------&gt;  O 1.95s]
