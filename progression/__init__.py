@@ -15,6 +15,20 @@ If you have one or more time consuming processes running and want to keep track 
 get an estimate on when the process is going to finish
 or if you just like statistics this package does the job.
 
+.. raw:: html
+
+    <div class="jupyter-widgets widget-html">
+    <style>.widget-html{font-family:monospace;
+                        color: #c0c0c0;
+                        white-space:pre;
+                        background-color:black}</style>
+    <span style="color:#800000">  _1_:</span><span style="color:#00ff00"><b>[</b><b>E</b>-588.75ms----[23.8c/s]-<b>G</b>-1.00s--&gt;</span>  56.0%      <b>O</b> 1.59s<b><span style="color:#00ff00">]</span></b>
+    <span style="color:#800000">  _2_:</span><span style="color:#00ff00"><b>[</b><b>E</b>-907.35ms----[17.6c/s]-<b>G</b>-1.00s-----64.</span>0%      <b>O</b> 1.91s<b><span style="color:#00ff00">]</span></b>
+    <span style="color:#800000">  _3_:</span><span style="color:#00ff00"><b>[</b><b>E</b>-161</span>.35ms    [12.4c/s] <b>G</b> 2.00s      8.0%      <b>O</b> 2.16s<b><span style="color:#00ff00">]</span></b>
+    <span style="color:#800000">  _4_:</span><span style="color:#00ff00"><b>[</b><b>E</b>-183.51ms</span>    [21.8c/s] <b>G</b> 1.00s     16.0%      <b>O</b> 1.18s<b><span style="color:#00ff00">]</span></b>
+    <br>
+    </div>
+
 It is pure python. It runs with python version 2 and 3. If you have IPython (and ipywidgets) installed and enable
 the widgets extension
 ::
