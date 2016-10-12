@@ -182,10 +182,12 @@
 
     .. raw:: html
 
-        <div class="jupyter-widgets widget-html"><style>.widget-html{font-family:monospace;white-space:pre}</style><span style="color:#800000">_1_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-588.75ms----[23.8c/s]-<b>G</b>-1.00s--&gt;</span>  56.0%      <b>O</b> 1.59s<b><span style="color:#0000ff">]</span></b>
-        <span style="color:#800000">_2_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-907.35ms----[17.6c/s]-<b>G</b>-1.00s-----64.</span>0%      <b>O</b> 1.91s<b><span style="color:#0000ff">]</span></b>
-        <span style="color:#800000">_3_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-161</span>.35ms    [12.4c/s] <b>G</b> 2.00s      8.0%      <b>O</b> 2.16s<b><span style="color:#0000ff">]</span></b>
-        <span style="color:#800000">_4_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-183.51ms</span>    [21.8c/s] <b>G</b> 1.00s     16.0%      <b>O</b> 1.18s<b><span style="color:#0000ff">]</span></b>
+        <div class="widget-html">
+        <style>.widget-html{font-family:monospace}</style>
+        <pre><span style="color:#800000">  _1_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-588.75ms----[23.8c/s]-<b>G</b>-1.00s--&gt;</span>  56.0%      <b>O</b> 1.59s<b><span style="color:#0000ff">]</span></b>
+        <span style="color:#800000">  _2_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-907.35ms----[17.6c/s]-<b>G</b>-1.00s-----64.</span>0%      <b>O</b> 1.91s<b><span style="color:#0000ff">]</span></b>
+        <span style="color:#800000">  _3_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-161</span>.35ms    [12.4c/s] <b>G</b> 2.00s      8.0%      <b>O</b> 2.16s<b><span style="color:#0000ff">]</span></b>
+        <span style="color:#800000">  _4_:</span><span style="color:#0000ff"><b>[</b><b>E</b>-183.51ms</span>    [21.8c/s] <b>G</b> 1.00s     16.0%      <b>O</b> 1.18s<b><span style="color:#0000ff">]</span></b></pre>
         </div>
 
 """

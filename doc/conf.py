@@ -351,3 +351,6 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'https://docs.python.org/': None}
+
+# Both the class’ and the __init__ method’s docstring are concatenated and inserted.
+autoclass_content = "both"

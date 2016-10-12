@@ -1,5 +1,88 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+Progression module
+------------------
+
+This module provides the (so far) four variants to display progress information:
+
+    * :py:class:`.ProgressBar`
+    
+        This class monitors one or multiple processes showing the total elapsed time (TET), the current speed
+        estimated from the most recent updated, a colored bar showing the progress and an
+        estimate for the remaining time, also called time to go (TTG).
+        
+        .. raw:: html
+            
+            <div class="widget-html">
+            <style>.widget-html{font-family:monospace;
+                                color: #c0c0c0;
+                                background-color:black}</style>
+            <pre>  5.83s [7.2c/s] <span style="color:#00ff00"><b>[=====================>                               ]</b></span> TTG 8.05s</pre>
+            </div>
+             
+    * :py:class:`.ProgressBarCounter`
+    
+        If a single process is intended to do several sequential task, the :py:class:`.ProgressBarCounter` class can keep track of the number
+        of accomplished tasks on top of monitoring the individual task just like :py:class:`.ProgressBar` does.
+
+        .. raw:: html
+        
+            <div class="widget-html">
+            <style>.widget-html{font-family:monospace;
+                                color: #c0c0c0;
+                                background-color:black}</style>
+            <pre><span style="color:#00ff00"><b>  [</b><b>TET</b>-5.83s-----[7.2c/s]-<b>TTG</b>-8.05s-></span> 42.0%    <b>ETA</b> 20161011_16:52:52 <b>ORT</b> 00:00:13<b><span style="color:#00ff00">]</span></b></pre>        
+            </div>
+    
+    * :py:class:`.ProgressBarFancy`
+    
+        This class intends to be a replacement for :py:class:`.ProgressBar` with slightly more information and
+        better handling of small terminal widths. 
+
+        .. raw:: html
+
+            <div class="widget-html">
+            <style>.widget-html{font-family:monospace;
+                                color: #c0c0c0;
+                                background-color:black}</style>
+            <pre>  00:00:35 [1.4c/min] <span style="color:#00ff00">#3</span> - 5.83s [7.2c/s] <span style="color:#00ff00"><b>[===========>                ]</b></span> TTG 8.05s</pre>        
+            </div>
+        
+    * :py:class:`.ProgressBarCounterFancy`
+    
+        Just as :py:class:`.ProgressBarFancy` this replaces :py:class:`.ProgressBarCounter`.
+
+        .. raw:: html
+
+            <div class="widget-html">
+            <style>.widget-html{font-family:monospace;
+                                color: #c0c0c0;
+                                background-color:black}</style>        
+            <pre>  00:00:35 [1.4c/min] <span style="color:#00ff00">#3</span> - <span style="color:#800000"></span><span style="color:#00ff00"><b>[</b><b>E</b>-5.83s-----[7.2c/s]-<b>G</b>-8</span>.05s     42.0%     <b>O</b> 00:00:13<b><span style="color:#00ff00">]</span></b></pre>        
+            </div>
+
+    .. autoclass:: Progress
+        :members:
+        :inherited-members:
+    
+    .. autoclass:: ProgressBar
+        :members:
+    
+    .. autoclass:: ProgressBarCounter
+        :members:
+    
+    .. autoclass:: ProgressBarFancy
+        :members:
+    
+    .. autoclass:: ProgressBarCounterFancy
+        :members:
+        
+    .. autofunction:: UnsignedIntValue
+    .. autofunction:: FloatValue
+    .. autofunction:: StringValue
+    
+"""
 from __future__ import division, print_function
 
 import datetime
@@ -97,7 +180,7 @@ class PipeFromProgressToIPythonHTMLWidget(object):
         self._buff += b
         if b.endswith(ESC_MY_MAGIC_ENDING):
             buff = ESC_SEQ_to_HTML(self._buff)
-            self.htmlWidget.value = '<style>.widget-html{font-family:monospace;white-space:pre}</style>'+buff
+            self.htmlWidget.value = '<style>.widget-html{font-family:monospace}</style><pre>'+buff+'</pre>'
             self._buff = ""
 
 PipeHandler = PipeToPrint
@@ -441,58 +524,15 @@ class Loop(object):
 
 class Progress(Loop):
     """
-    Abstract Progress Loop
+    Abstract Progress Class
     
-    Uses Loop class to implement a repeating function to display the progress
-    of multiples processes.
-    
-    In the simplest case, given only a list of shared memory values 'count' (NOTE: 
-    a single value will be automatically mapped to a one element list),
-    the total elapses time (TET) and a speed estimation are calculated for
-    each process and passed to the display function show_stat.
-    
-    This functions needs to be implemented in a subclass. It is intended to show
-    the progress of ONE process in one line.
-    
-    When max_count is given (in general as list of shared memory values, a single
-    shared memory value will be mapped to a one element list) the time to go TTG
-    will also be calculated and passed tow show_stat.
-    
-    Information about the terminal width will be retrieved when setting width='auto'.
-    If supported by the terminal emulator the width in characters of the terminal
-    emulator will be stored in width and also passed to show_stat. 
-    Otherwise, a default width of 80 characters will be chosen.
-    
-    Also you can specify a fixed width by setting width to the desired number.
-    
-    NOTE: in order to achieve multiline progress special escape sequences are used
-    which may not be supported by all terminal emulators.
-    
-    example:
-
-        c1 = UnsignedIntValue(val=0)
-        c2 = UnsignedIntValue(val=0)
-    
-        c = [c1, c2]
-        prepend = ['c1: ', 'c2: ']
-        with ProgressCounter(count=c, prepend=prepend) as sc:
-            sc.start()
-            while True:
-                i = np.random.randint(0,2)
-                with c[i].get_lock():
-                    c[i].value += 1
-                    
-                if c[0].value == 1000:
-                    break
-                
-                time.sleep(0.01)
-    
-    using start() within the 'with' statement ensures that the subprocess
-    which is started by start() in order to show the progress repeatedly
-    will be terminated on context exit. Otherwise one has to make sure
-    that at some point the stop() routine is called. When dealing with 
-    signal handling and exception this might become tricky, so that the  
-    use of the 'with' statement is highly encouraged. 
+    The :py:class:`Progress` Class uses :py:class:`Loop` to provide a repeating
+    function which calculates progress information from a changing counter value.
+    The formatting of these information is done by overwriting the static member
+    :py:func:`Progress.show_stat`. :py:func:`Progress.show_stat` is intended to
+    format a single progress bar on a single line only. 
+    The extension to multiple progresses is done
+    automatically base on the formatting of a single line.
     """    
     def __init__(self, 
                  count, 
@@ -505,30 +545,52 @@ class Progress(Loop):
                  sigint            = 'stop', 
                  sigterm           = 'stop',
                  info_line         = None):
-        """       
-        count [mp.Value] - shared memory to hold the current state, (list or single value)
+        """
+        :param count:              shared variable for holding the current state 
+            (use :py:func:`UnsignedIntValue` for short hand creation)
+        :type count:               list/single value of multiprocessing.Value
+        :param max_count:          shared variable for holding the final state
+        :type max_count:           None or list/single value of multiprocessing.Value
+        :param prepend:            string to put in front of each progress output
+        :type prepend:             None, str or list of str
+        :param width:              the width to use for the progress line (fixed or automatically determined)                 
+        :type width:               int or "auto"
+        :param speed_calc_cycles:  number of updated (cycles) to use for estimating the speed 
+            (example: ``speed_calc_sycles = 4`` and ``interval = 1`` means that the speed is estimated from
+            the current state and state 4 updates before where the elapsed time will roughly be 4s)               
+        :param interval:           seconds to wait before updating the progress
+        :param verbose:            DEPRECATED: has no effect, use the global ``log.setLevel()`` to control the
+            output level
+        :param sigint:             behavior of the subprocess on signal ``SIGINT`` (``"stop"`` triggers 
+            ``SystemExit`` whereas ``"ign"`` ignores the signal)   
+        :type sigint:              "stop" or "ign"
+        :param sigterm:            behavior of the subprocess on signal ``SIGTERM`` (``"stop"`` triggers 
+            ``SystemExit`` whereas ``"ign"`` ignores the signal)   
+        :type sigterm:             "stop" or "ign"
+        :param info_line:          additional text to show below the progress (use :py:func:`StringValue`
+            for short hand creation of shared strings)
+        :type info_line:           None or multiprocessing.Array of characters
+
+        .. note::
         
-        max_count [mp.Value] - shared memory holding the final state, (None, list or single value),
-        may be changed by external process without having to explicitly tell this class.
-        If None, no TTG and relative progress can be calculated -> TTG = None 
+            As `Progress` is derived from :py:class:`Loop` it is highly encurraged to create
+            any instance of Progress with a context manager (``with`` statement).
+            This ensures that the subprocess showing the progress terminats on context exit.
+            Otherwise one has to make sure that at some point the stop() routine is called.
+            
+            abstract example::
+            
+                with AProgressClass(...) as p:
+                    p.start()
+                    # do stuff and modify counter
         
-        prepend [string] - string to put in front of the progress output, (None, single string
-        or of list of strings)
-        
-        interval [int] - seconds to wait between progress print
-        
-        speed_calc_cycles [int] - use the current (time, count) as
-        well as the (old_time, old_count) read by the show_stat function 
-        speed_calc_cycles calls before to calculate the speed as follows:
-        s = count - old_count / (time - old_time)
-        
-        verbose, sigint, sigterm -> see loop class  
         """
         
         if verbose is not None:
             log.warning("verbose is deprecated, only allowed for compatibility")
             warnings.warn("verbose is deprecated", DeprecationWarning)        
 
+        # converts count to list and do type check
         try:
             for c in count:
                 if not isinstance(c, Synchronized):
@@ -542,6 +604,7 @@ class Progress(Loop):
         
         self.len = len(count)
             
+        # converts max_count to list and do type check
         if max_count is not None:
             if self.is_multi:
                 try:
@@ -559,9 +622,7 @@ class Progress(Loop):
         
         self.start_time = []
         self.speed_calc_cycles = speed_calc_cycles
-        
         self.width = width
-        
         self.q = []
         self.prepend = []
         self.lock = []
@@ -597,7 +658,7 @@ class Progress(Loop):
         
         # setup loop class with func
         Loop.__init__(self,
-                      func = Progress.show_stat_wrapper_multi,
+                      func = Progress._show_stat_wrapper_multi,
 
                       args = (self.count,
                               self.last_count,
@@ -631,12 +692,22 @@ class Progress(Loop):
               q, 
               last_speed,
               lock):
-        """
-            do the pre calculations in order to get TET, speed, TTG
-            and call the actual display routine show_stat with these arguments
-            
-            NOTE: show_stat is purely abstract and need to be reimplemented to
-            achieve a specific progress display.  
+        """do the pre calculations in order to get TET, speed, TTG
+        
+        :param count:               count 
+        :param last_count:          count at the last call, allows to treat the case of no progress
+            between sequential calls
+        :param start_time:          the time when start was triggered
+        :param max_count:           the maximal value count 
+        :type max_count:
+        :param speed_calc_cycles:
+        :type speed_calc_cycles:
+        :param q:
+        :type q:
+        :param last_speed:
+        :type last_speed:
+        :param lock:
+        :type lock:
         """
         count_value = count.value
         start_time_value = start_time.value
@@ -708,60 +779,24 @@ class Progress(Loop):
             convenient functions to call the static show_stat_wrapper_multi with
             the given class members
         """
-        Progress.show_stat_wrapper_multi(self.count,
-                                         self.last_count, 
-                                         self.start_time, 
-                                         self.max_count, 
-                                         self.speed_calc_cycles,
-                                         self.width,
-                                         self.q,
-                                         self.last_speed,
-                                         self.prepend,
-                                         self.__class__.show_stat,
-                                         self.len, 
-                                         self.add_args,
-                                         self.lock,
-                                         self.info_line,
-                                         no_move_up=True)
-
-    def reset(self, i = None):
-        """
-            convenient function to reset progress information
-            
-            i [None, int] - None: reset all, int: reset process indexed by i 
-        """
-#        super(Progress, self).stop()
-        if i is None:
-            self._reset_all()
-        else:
-            self._reset_i(i)
-#        super(Progress, self).start()
-
+        Progress._show_stat_wrapper_multi(self.count,
+                                          self.last_count, 
+                                          self.start_time, 
+                                          self.max_count, 
+                                          self.speed_calc_cycles,
+                                          self.width,
+                                          self.q,
+                                          self.last_speed,
+                                          self.prepend,
+                                          self.__class__.show_stat,
+                                          self.len, 
+                                          self.add_args,
+                                          self.lock,
+                                          self.info_line,
+                                          no_move_up=True)
+        
     @staticmethod        
-    def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, **kwargs):
-        """
-            re implement this function in a subclass
-            
-            count_value - current value of progress
-            
-            max_count_value - maximum value the progress can take
-            
-            prepend - some extra string to be put for example in front of the
-            progress display
-            
-            speed - estimated speed in counts per second (use for example humanize_speed
-            to get readable information in string format)
-            
-            tet - total elapsed time in seconds (use for example humanize_time
-            to get readable information in string format)
-            
-            ttg - time to go in seconds (use for example humanize_time
-            to get readable information in string format)
-        """
-        raise NotImplementedError
-
-    @staticmethod        
-    def show_stat_wrapper(count, 
+    def _show_stat_wrapper(count, 
                           last_count, 
                           start_time, 
                           max_count, 
@@ -774,6 +809,9 @@ class Progress(Loop):
                           add_args, 
                           i, 
                           lock):
+        """
+            calculate 
+        """
         count_value, max_count_value, speed, tet, ttg, = Progress._calc(count, 
                                                                         last_count, 
                                                                         start_time, 
@@ -785,7 +823,7 @@ class Progress(Loop):
         return show_stat_function(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **add_args)
 
     @staticmethod
-    def show_stat_wrapper_multi(count, 
+    def _show_stat_wrapper_multi(count, 
                                 last_count, 
                                 start_time, 
                                 max_count, 
@@ -806,7 +844,7 @@ class Progress(Loop):
 #         print(ESC_BOLD, end='')
 #         sys.stdout.flush()
         for i in range(len_):
-            Progress.show_stat_wrapper(count[i], 
+            Progress._show_stat_wrapper(count[i], 
                                        last_count[i], 
                                        start_time[i], 
                                        max_count[i], 
@@ -837,9 +875,44 @@ class Progress(Loop):
                                     # of the message in a stream
                                     # so ESC_HIDDEN+ESC_NO_CHAR_ATTR is a magic ending
         print(ESC_MOVE_LINE_UP(n) + ESC_MY_MAGIC_ENDING, end='')
-        sys.stdout.flush()
+        sys.stdout.flush()        
+
+    def reset(self, i = None):
+        """resets the progress informaion
+        
+        :param i: tell which progress to reset, if None reset all
+        :type i:  None, int
+        """
+        if i is None:
+            self._reset_all()
+        else:
+            self._reset_i(i)
+
+    @staticmethod        
+    def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, **kwargs):
+        """A function that formats the progress information
+        
+        This function will be called periodically for each progress that is monitored.
+        Overwrite this function in a subclass to implement a specific formating of the progress information
+        
+        :param count_value:      a number holding the current state
+        :param max_count_value:  should be the largest number `count_value` can reach
+        :param prepend:          additional text for each progress
+        :param speed:            the speed estimation
+        :param tet:              the total elapsed time
+        :param ttg:              the time to go
+        :param width:            the width for the progressbar, when set to `"auto"` this function
+            should try to detect the width available
+        :type width:             int or "auto"
+        """
+        raise NotImplementedError
+
+
 
     def start(self):
+        """
+            start
+        """
         # before printing any output to stout, we can now check this
         # variable to see if any other ProgressBar has reserved that
         # terminal.
@@ -1168,22 +1241,23 @@ class ProgressBarCounterFancy(ProgressBarCounter):
         counter_speed = kwargs['counter_speed'][i]
         counter_tet = time.time() - kwargs['init_time']
 
-        s_c = "{}{}{} [{}] {}#{} - ".format(ESC_NO_CHAR_ATTR,
-                                            COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
-                                            humanize_time(counter_tet),
-                                            humanize_speed(counter_speed.value),
-                                            COLTHM['BAR_COL'],
-                                            str(counter_count.value) + ESC_DEFAULT)
+        s_c = "{}{}{} [{}] {}#{}".format(ESC_NO_CHAR_ATTR,
+                                         COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
+                                         humanize_time(counter_tet),
+                                         humanize_speed(counter_speed.value),
+                                         COLTHM['BAR_COL'],
+                                         str(counter_count.value) + ESC_DEFAULT)
 
-        if width == 'auto':
-            width = get_terminal_width()        
-
-        if (max_count_value is None) or (max_count_value == 0):
-            s_c = "{}{} [{}] {}#{}    ".format(s_c, humanize_time(tet), humanize_speed(speed),
-                                               COLTHM['BAR_COL'], str(count_value)+ESC_DEFAULT)
-        else:
-            _width = width - len_string_without_ESC(s_c)
-            s_c += ProgressBarFancy._stat(count_value, max_count_value, '', speed, tet, ttg, _width, i)
+        if max_count_value is not None:
+            if width == 'auto':
+                width = get_terminal_width()
+            s_c += ' - '
+            if max_count_value == 0:
+                s_c = "{}{} [{}] {}#{}    ".format(s_c, humanize_time(tet), humanize_speed(speed),
+                                                   COLTHM['BAR_COL'], str(count_value)+ESC_DEFAULT)
+            else:
+                _width = width - len_string_without_ESC(s_c)
+                s_c += ProgressBarFancy._stat(count_value, max_count_value, '', speed, tet, ttg, _width, i)
 
         print(s_c)
                         
@@ -1223,12 +1297,15 @@ class SIG_handler_Loop(object):
         raise LoopInterruptError()
 
 def FloatValue(val=0.):
+    """returns a `multiprocessing.Value` of type `float` with initial value `val`"""
     return mp.Value('d', val, lock=True)
 
 def UnsignedIntValue(val=0):
+    """returns a `multiprocessing.Value` of type `unsigned int` with initial value `val`"""
     return mp.Value('I', val, lock=True)
 
 def StringValue(num_of_bytes):
+    """returns a `multiprocessing.Array` of type `character` and length `num_of_bytes`"""
     return mp.Array('c', _jm_compatible_bytearray(num_of_bytes), lock=True)
 
 def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = False):
@@ -1270,7 +1347,7 @@ def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = 
         else:
             log.warning("process (pid %s) is still running!", proc.pid)
 
-        print("the process (pid %s) seems still running".format(proc.pid))
+        print("the process (pid {}) seems still running".format(proc.pid))
         try:
             answer = input("press 'enter' to send SIGTERM, enter 'k' to send SIGKILL or enter 'ignore' to not bother about the process anymore")
         except Exception as e:
