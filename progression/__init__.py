@@ -61,3 +61,4 @@ __version__ = '0.1.3'
 
 from .progress import *
 from . import decorators
+from . import terminal

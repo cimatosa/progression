@@ -99,6 +99,7 @@ import threading
 import time
 import traceback
 import warnings
+from . import terminal
 
 _IPYTHON = True
 try:
@@ -111,6 +112,20 @@ try:
 except:
     _IPYTHON = False
     warnings.warn("could not load  IPython (IPython HTML output will not work)", category=ImportWarning)
+
+
+# Magic conversion from 3 to 2
+if sys.version_info[0] == 2:
+    ProcessLookupError = OSError
+    inMemoryBuffer = io.BytesIO
+    old_math_ceil = math.ceil
+    def my_int_ceil(f):
+        return int(old_math_ceil(f))
+    math.ceil = my_int_ceil
+    _jm_compatible_bytearray = lambda x: x
+elif sys.version_info[0] == 3:
+    inMemoryBuffer = io.StringIO
+    _jm_compatible_bytearray = bytearray
 
 
 class MultiLineFormatter(logging.Formatter):
@@ -133,12 +148,12 @@ def_handl.setFormatter(fmt)                                     # ... and pads m
 log = logging.getLogger(__name__)                               # creates the default log for this module
 log.addHandler(def_handl)
 
-if sys.version_info[0] == 2:         # minor hacks to be python 2 and 3 compatible
-    ProcessLookupError = OSError
-    inMemoryBuffer = io.BytesIO
-elif sys.version_info[0] == 3:
-    inMemoryBuffer = io.StringIO
 
+class LoopExceptionError(RuntimeError):
+    pass
+
+class LoopInterruptError(Exception):
+    pass
 
 class StdoutPipe(object):
     """replacement for stream objects such as stdout which
@@ -178,8 +193,8 @@ class PipeFromProgressToIPythonHTMLWidget(object):
         self._buff = ""
     def __call__(self, b):
         self._buff += b
-        if b.endswith(ESC_MY_MAGIC_ENDING):
-            buff = ESC_SEQ_to_HTML(self._buff)
+        if b.endswith(terminal.ESC_MY_MAGIC_ENDING):
+            buff = terminal.ESC_SEQ_to_HTML(self._buff)
             self.htmlWidget.value = '<style>.widget-html{font-family:monospace}</style><pre>'+buff+'</pre>'
             self._buff = ""
 
@@ -202,37 +217,13 @@ def choose_pipe_handler(kind = 'print', color_theme = None):
         else:
             warnings.warn("can not choose ipythonHTML (IPython and/or ipywidgets were not loaded)")
 
-try:
-    from shutil import get_terminal_size as shutil_get_terminal_size
-except ImportError:
-    shutil_get_terminal_size = None
-    
-if sys.version_info[0] == 2:
-    old_math_ceil = math.ceil 
-    def my_int_ceil(f):
-        return int(old_math_ceil(f))
-    
-    math.ceil = my_int_ceil
-
-# Magic conversion from 3 to 2
-if sys.version_info[0] == 2:
-    _jm_compatible_bytearray = lambda x: x
-else:
-    _jm_compatible_bytearray = bytearray
-
-class LoopExceptionError(RuntimeError):
-    pass
-
-class LoopInterruptError(Exception):
-    pass
-
 def get_identifier(name=None, pid=None, bold=True):
     if pid is None:
         pid = os.getpid()
 
     if bold:
-        esc_bold = ESC_BOLD
-        esc_no_char_attr = ESC_NO_CHAR_ATTR
+        esc_bold = terminal.ESC_BOLD
+        esc_no_char_attr = terminal.ESC_NO_CHAR_ATTR
     else:
         esc_bold = ""
         esc_no_char_attr = ""
@@ -240,7 +231,75 @@ def get_identifier(name=None, pid=None, bold=True):
     if name is None:
         return "{}PID {}{}".format(esc_bold, pid, esc_no_char_attr)
     else:
-        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)    
+        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)
+
+
+def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, log_queue, sigint, sigterm, name,
+                       logging_level, conn_send):
+    """
+        to be executed as a separate process (that's why this functions is declared static)
+    """
+    prefix = get_identifier(name) + ' '
+    global log
+    log = logging.getLogger(__name__ + '.' + "log_{}".format(get_identifier(name, bold=False)))
+    log.setLevel(logging_level)
+
+    # try:
+    #     log.addHandler(QueueHandler(log_queue))
+    # except NameError:
+    #     log.addHandler(def_handl)
+
+    sys.stdout = StdoutPipe(conn_send)
+
+    log.debug("enter wrapper_func")
+
+    SIG_handler_Loop(sigint, sigterm, log, prefix)
+
+    while shared_mem_run.value:
+        try:
+            # in pause mode, simply sleep
+            if shared_mem_pause.value:
+                quit_loop = False
+            else:
+                # if not pause mode -> call func and see what happens
+                try:
+                    quit_loop = func(*args)
+                except LoopInterruptError:
+                    raise
+                except Exception as e:
+                    log.error("error %s occurred in loop alling 'func(*args)'", type(e))
+                    log.info("show traceback.print_exc()\n%s", traceback.format_exc())
+                    sys.exit(-1)
+
+                if quit_loop is True:
+                    log.debug("loop stooped because func returned True")
+                    break
+
+            time.sleep(interval)
+        except LoopInterruptError:
+            log.debug("quit wrapper_func due to InterruptedError")
+            break
+
+    log.debug("wrapper_func terminates gracefully")
+
+
+def show_stat_base(count_value, max_count_value, prepend, speed, tet, ttg, width, **kwargs):
+    """A function that formats the progress information
+
+    This function will be called periodically for each progress that is monitored.
+    Overwrite this function in a subclass to implement a specific formating of the progress information
+
+    :param count_value:      a number holding the current state
+    :param max_count_value:  should be the largest number `count_value` can reach
+    :param prepend:          additional text for each progress
+    :param speed:            the speed estimation
+    :param tet:              the total elapsed time
+    :param ttg:              the time to go
+    :param width:            the width for the progressbar, when set to `"auto"` this function
+        should try to detect the width available
+    :type width:             int or "auto"
+    """
+    raise NotImplementedError
 
 class Loop(object):
     """
@@ -365,53 +424,6 @@ class Loop(object):
         log.debug("wait for monitor thread to join")
         self._monitor_thread.join()      
 
-    @staticmethod
-    def _wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, log_queue, sigint, sigterm, name, logging_level, conn_send):
-        """
-            to be executed as a separate process (that's why this functions is declared static)
-        """
-        prefix = get_identifier(name)+' '
-        global log
-        log = logging.getLogger(__name__+'.'+"log_{}".format(get_identifier(name, bold=False)))
-        log.setLevel(logging_level)
-
-        # try:
-        #     log.addHandler(QueueHandler(log_queue))
-        # except NameError:
-        #     log.addHandler(def_handl)
-            
-        sys.stdout = StdoutPipe(conn_send)
-                  
-        log.debug("enter wrapper_func")            
-
-        SIG_handler_Loop(sigint, sigterm, log, prefix)
-
-        while shared_mem_run.value:
-            try:
-                # in pause mode, simply sleep 
-                if shared_mem_pause.value:
-                    quit_loop = False
-                else:
-                    # if not pause mode -> call func and see what happens
-                    try:
-                        quit_loop = func(*args)
-                    except LoopInterruptError:
-                        raise
-                    except Exception as e:
-                        log.error("error %s occurred in loop alling 'func(*args)'", type(e))
-                        log.info("show traceback.print_exc()\n%s", traceback.format_exc())
-                        sys.exit(-1)
-    
-                    if quit_loop is True:
-                        log.debug("loop stooped because func returned True")
-                        break
-                    
-                time.sleep(interval)
-            except LoopInterruptError:
-                log.debug("quit wrapper_func due to InterruptedError")
-                break
-
-        log.debug("wrapper_func terminates gracefully")
         
     def _monitor_stdout_pipe(self):
         while True:
@@ -421,8 +433,6 @@ class Loop(object):
             except EOFError:
                 break
 
-
-        
     def start(self):
         """
         uses multiprocess Process to call _wrapper_func in subprocess 
@@ -450,10 +460,16 @@ class Loop(object):
         self._monitor_thread.daemon=True
         self._monitor_thread.start()
         log.debug("started monitor thread")
+
+        args = (self.func, self.args, self._run, self._pause, self.interval,
+                log_queue, self._sigint, self._sigterm, name, log.level, self.conn_send)
+
+        # import pickle
+        # pickle.dumps(_loop_wrapper_func)
+        # pickle.dumps(args)
         
-        self._proc = mp.Process(target = Loop._wrapper_func, 
-                                args   = (self.func, self.args, self._run, self._pause, self.interval, 
-                                          log_queue, self._sigint, self._sigterm, name, log.level, self.conn_send))
+        self._proc = mp.Process(target = _loop_wrapper_func,
+                                args   = args)
         self._proc.start()
         log.debug("started a new process with pid %s", self._proc.pid)
         
@@ -544,7 +560,8 @@ class Progress(Loop):
                  verbose           = None,
                  sigint            = 'stop', 
                  sigterm           = 'stop',
-                 info_line         = None):
+                 info_line         = None,
+                 show_stat         = None):
         """
         :param count:              shared variable for holding the current state 
             (use :py:func:`UnsignedIntValue` for short hand creation)
@@ -655,6 +672,7 @@ class Progress(Loop):
         self.add_args = {}
         
         self.info_line = info_line
+        self.show_stat = show_stat
         
         # setup loop class with func
         Loop.__init__(self,
@@ -669,7 +687,7 @@ class Progress(Loop):
                               self.q,
                               self.last_speed,
                               self.prepend,
-                              self.__class__.show_stat,
+                              show_stat,
                               self.len,
                               self.add_args,
                               self.lock,
@@ -788,7 +806,7 @@ class Progress(Loop):
                                           self.q,
                                           self.last_speed,
                                           self.prepend,
-                                          self.__class__.show_stat,
+                                          self.show_stat,
                                           self.len, 
                                           self.add_args,
                                           self.lock,
@@ -864,7 +882,7 @@ class Progress(Loop):
             n += len(s)
             for si in s:
                 if width == 'auto':
-                    width = get_terminal_width()
+                    width = terminal.get_terminal_width()
                 if len(si) > width:
                     si = si[:width]
                 print("{0:<{1}}".format(si, width))
@@ -874,7 +892,7 @@ class Progress(Loop):
                                     # this is only a hack to find the end
                                     # of the message in a stream
                                     # so ESC_HIDDEN+ESC_NO_CHAR_ATTR is a magic ending
-        print(ESC_MOVE_LINE_UP(n) + ESC_MY_MAGIC_ENDING, end='')
+        print(terminal.ESC_MOVE_LINE_UP(n) + terminal.ESC_MY_MAGIC_ENDING, end='')
         sys.stdout.flush()        
 
     def reset(self, i = None):
@@ -888,26 +906,6 @@ class Progress(Loop):
         else:
             self._reset_i(i)
 
-    @staticmethod        
-    def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, **kwargs):
-        """A function that formats the progress information
-        
-        This function will be called periodically for each progress that is monitored.
-        Overwrite this function in a subclass to implement a specific formating of the progress information
-        
-        :param count_value:      a number holding the current state
-        :param max_count_value:  should be the largest number `count_value` can reach
-        :param prepend:          additional text for each progress
-        :param speed:            the speed estimation
-        :param tet:              the total elapsed time
-        :param ttg:              the time to go
-        :param width:            the width for the progressbar, when set to `"auto"` this function
-            should try to detect the width available
-        :type width:             int or "auto"
-        """
-        raise NotImplementedError
-
-
 
     def start(self):
         """
@@ -917,8 +915,8 @@ class Progress(Loop):
         # variable to see if any other ProgressBar has reserved that
         # terminal.
         
-        if (self.__class__.__name__ in TERMINAL_PRINT_LOOP_CLASSES):
-            if not terminal_reserve(progress_obj=self):
+        if (self.__class__.__name__ in terminal.TERMINAL_PRINT_LOOP_CLASSES):
+            if not terminal.terminal_reserve(progress_obj=self):
                 log.warning("tty already reserved, NOT starting the progress loop!")
                 return
         
@@ -935,7 +933,7 @@ class Progress(Loop):
             - releases terminal reservation
         """
         super(Progress, self).stop()
-        terminal_unreserve(progress_obj=self, verbose=self.verbose)
+        terminal.terminal_unreserve(progress_obj=self, verbose=self.verbose)
 
         if self.show_on_exit:
             if not isinstance(self.pipe_handler, PipeToPrint):
@@ -949,7 +947,38 @@ class Progress(Loop):
                 self._show_stat()
                 print()
         self.show_on_exit = False
-        
+
+
+def show_stat_ProgressBar(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
+    if (max_count_value is None) or (max_count_value == 0):
+        # only show current absolute progress as number and estimated speed
+        print("{}{}{} [{}] {}#{}    ".format(terminal.ESC_NO_CHAR_ATTR,
+                                             COLTHM['PRE_COL'] + prepend + terminal.ESC_DEFAULT,
+                                             humanize_time(tet), humanize_speed(speed),
+                                             terminal.ESC_BOLD + COLTHM['BAR_COL'],
+                                             count_value))
+    else:
+        if width == 'auto':
+            width = terminal.get_terminal_width()
+
+        # deduce relative progress and show as bar on screen
+        if ttg is None:
+            s3 = " TTG --"
+        else:
+            s3 = " TTG {}".format(humanize_time(ttg))
+
+        s1 = "{}{}{} [{}] ".format(terminal.ESC_NO_CHAR_ATTR,
+                                   COLTHM['PRE_COL'] + prepend + terminal.ESC_DEFAULT,
+                                   humanize_time(tet),
+                                   humanize_speed(speed))
+
+        l = terminal.len_string_without_ESC(s1 + s3)
+        l2 = width - l - 3
+        a = int(l2 * count_value / max_count_value)
+        b = l2 - a
+        s2 = COLTHM['BAR_COL'] + terminal.ESC_BOLD + "[" + "=" * a + ">" + " " * b + "]" + terminal.ESC_RESET_BOLD + terminal.ESC_DEFAULT
+
+        print(s1 + s2 + s3)
 
 class ProgressBar(Progress):
     """
@@ -960,42 +989,50 @@ class ProgressBar(Progress):
             width [int/'auto'] - the number of characters used to show the Progress bar,
             use 'auto' to determine width from terminal information -> see _set_width
         """
-        Progress.__init__(self, *args, **kwargs)
+        Progress.__init__(self, *args, show_stat = show_stat_ProgressBar, **kwargs)
 
-        self._PRE_PREPEND = ESC_NO_CHAR_ATTR + ESC_RED
-        self._POST_PREPEND = ESC_BOLD + ESC_GREEN
+        # self._PRE_PREPEND = terminal.ESC_NO_CHAR_ATTR + ESC_RED
+        # self._POST_PREPEND = ESC_BOLD + ESC_GREEN
 
-    @staticmethod        
-    def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
-        if (max_count_value is None) or (max_count_value == 0):
-            # only show current absolute progress as number and estimated speed
-            print("{}{}{} [{}] {}#{}    ".format(ESC_NO_CHAR_ATTR,
-                                                 COLTHM['PRE_COL'] + prepend + ESC_DEFAULT,
-                                                 humanize_time(tet), humanize_speed(speed),
-                                                 ESC_BOLD + COLTHM['BAR_COL'],
-                                                 count_value))
+
+def show_stat_ProgressBarCounter(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
+    counter_count = kwargs['counter_count'][i]
+    counter_speed = kwargs['counter_speed'][i]
+    counter_tet = time.time() - kwargs['init_time']
+
+    s_c = "{}{}{} [{}] {}#{} - ".format(terminal.ESC_NO_CHAR_ATTR,
+                                        COLTHM['PRE_COL'] + prepend + terminal.ESC_DEFAULT,
+                                        humanize_time(counter_tet),
+                                        humanize_speed(counter_speed.value),
+                                        COLTHM['BAR_COL'],
+                                        str(counter_count.value) + terminal.ESC_DEFAULT)
+
+    if width == 'auto':
+        width = terminal.get_terminal_width()
+
+    if (max_count_value is None) or (max_count_value == 0):
+        s_c = "{}{} [{}] {}#{}    ".format(s_c,
+                                           humanize_time(tet),
+                                           humanize_speed(speed),
+                                           COLTHM['BAR_COL'],
+                                           str(count_value) + terminal.ESC_DEFAULT)
+    else:
+        if ttg is None:
+            s3 = " TTG --"
         else:
-            if width == 'auto':
-                width = get_terminal_width()
-            
-            # deduce relative progress and show as bar on screen
-            if ttg is None:
-                s3 = " TTG --"
-            else:
-                s3 = " TTG {}".format(humanize_time(ttg))
-               
-            s1 = "{}{}{} [{}] ".format(ESC_NO_CHAR_ATTR,
-                                      COLTHM['PRE_COL'] + prepend + ESC_DEFAULT,
-                                      humanize_time(tet),
-                                      humanize_speed(speed))
-            
-            l = len_string_without_ESC(s1+s3)
-            l2 = width - l - 3
-            a = int(l2 * count_value / max_count_value)
-            b = l2 - a
-            s2 = COLTHM['BAR_COL'] + ESC_BOLD + "[" + "="*a + ">" + " "*b + "]" + ESC_RESET_BOLD + ESC_DEFAULT
+            s3 = " TTG {}".format(humanize_time(ttg))
 
-            print(s1+s2+s3)
+        s1 = "{} [{}] ".format(humanize_time(tet), humanize_speed(speed))
+
+        l = terminal.len_string_without_ESC(s1 + s3 + s_c)
+        l2 = width - l - 3
+
+        a = int(l2 * count_value / max_count_value)
+        b = l2 - a
+        s2 = COLTHM['BAR_COL'] + terminal.ESC_BOLD + "[" + "=" * a + ">" + " " * b + "]" + terminal.ESC_RESET_BOLD + terminal.ESC_DEFAULT
+        s_c = s_c + s1 + s2 + s3
+
+    print(s_c)
 
 
 class ProgressBarCounter(Progress):
@@ -1013,7 +1050,7 @@ class ProgressBarCounter(Progress):
         max_count == 0 -> hide process statistic at all 
     """
     def __init__(self, speed_calc_cycles_counter=5, **kwargs):       
-        Progress.__init__(self, **kwargs)
+        Progress.__init__(self, show_stat = show_stat_ProgressBarCounter, **kwargs)
         
         self.counter_count = []
         self.counter_q = []
@@ -1054,46 +1091,124 @@ class ProgressBarCounter(Progress):
         self.counter_speed[i].value = speed
                     
         Progress._reset_i(self, i)
-        
-    @staticmethod
-    def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
-        counter_count = kwargs['counter_count'][i]
-        counter_speed = kwargs['counter_speed'][i]
-        counter_tet = time.time() - kwargs['init_time']
-        
-        s_c = "{}{}{} [{}] {}#{} - ".format(ESC_NO_CHAR_ATTR,
-                                            COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
-                                            humanize_time(counter_tet),
-                                            humanize_speed(counter_speed.value),
+
+
+def get_d(s1, s2, width, lp, lps):
+    d = width - len(terminal.remove_ESC_SEQ_from_string(s1)) - len(terminal.remove_ESC_SEQ_from_string(s2)) - 2 - lp - lps
+    if d >= 0:
+        d1 = d // 2
+        d2 = d - d1
+        return s1, s2, d1, d2
+
+def full_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
+    s1 = "TET {} {:>12} TTG {}".format(tet, speed, ttg)
+    s2 = "ETA {} ORT {}".format(eta, ort)
+    return get_d(s1, s2, width, lp, lps)
+
+def full_minor_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
+    s1 = "E {} {:>12} G {}".format(tet, speed, ttg)
+    s2 = "A {} O {}".format(eta, ort)
+    return get_d(s1, s2, width, lp, lps)
+
+def reduced_1_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
+    s1 = "E {} {:>12} G {}".format(tet, speed, ttg)
+    s2 = "O {}".format(ort)
+    return get_d(s1, s2, width, lp, lps)
+
+def reduced_2_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
+    s1 = "E {} G {}".format(tet, ttg)
+    s2 = "O {}".format(ort)
+    return get_d(s1, s2, width, lp, lps)
+
+def reduced_3_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
+    s1 = "E {} G {}".format(tet, ttg)
+    s2 = ''
+    return get_d(s1, s2, width, lp, lps)
+
+def reduced_4_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
+    s1 = ''
+    s2 = ''
+    return get_d(s1, s2, width, lp, lps)
+
+def kw_bold(s, ch_after):
+    kws = ['TET', 'TTG', 'ETA', 'ORT', 'E', 'G', 'A', 'O']
+    for kw in kws:
+        for c in ch_after:
+            s = s.replace(kw + c, terminal.ESC_BOLD + kw + terminal.ESC_RESET_BOLD + c)
+
+    return s
+
+def _stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
+    if (max_count_value is None) or (max_count_value == 0):
+        # only show current absolute progress as number and estimated speed
+        stat = "{}{} [{}] {}#{}    ".format(COLTHM['PRE_COL'] + prepend + terminal.ESC_DEFAULT,
+                                            humanize_time(tet),
+                                            humanize_speed(speed),
                                             COLTHM['BAR_COL'],
-                                            str(counter_count.value) + ESC_DEFAULT)
-
+                                            str(count_value) + terminal.ESC_DEFAULT)
+    else:
         if width == 'auto':
-            width = get_terminal_width()
-        
-        if (max_count_value is None) or (max_count_value == 0):
-            s_c = "{}{} [{}] {}#{}    ".format(s_c,
-                                               humanize_time(tet),
-                                               humanize_speed(speed),
-                                               COLTHM['BAR_COL'],
-                                               str(count_value)+ ESC_DEFAULT)
+            width = terminal.get_terminal_width()
+        # deduce relative progress
+        p = count_value / max_count_value
+        if p < 1:
+            ps = " {:.1%} ".format(p)
         else:
-            if ttg is None:
-                s3 = " TTG --"
-            else:
-                s3 = " TTG {}".format(humanize_time(ttg))
+            ps = " {:.0%} ".format(p)
 
-            s1 = "{} [{}] ".format(humanize_time(tet), humanize_speed(speed))
+        if ttg is None:
+            eta = '--'
+            ort = None
+        else:
+            eta = datetime.datetime.fromtimestamp(time.time() + ttg).strftime("%Y%m%d_%H:%M:%S")
+            ort = tet + ttg
 
-            l = len_string_without_ESC(s1 + s3 + s_c)
-            l2 = width - l - 3
+        tet = humanize_time(tet)
+        speed = '[' + humanize_speed(speed) + ']'
+        ttg = humanize_time(ttg)
+        ort = humanize_time(ort)
+        repl_ch = '-'
+        lp = len(prepend)
 
-            a = int(l2 * count_value / max_count_value)
-            b = l2 - a
-            s2 = COLTHM['BAR_COL'] + ESC_BOLD + "[" + "=" * a + ">" + " " * b + "]" + ESC_RESET_BOLD + ESC_DEFAULT
-            s_c = s_c+s1+s2+s3
+        args = p, tet, speed, ttg, eta, ort, repl_ch, width, lp, len(ps)
 
-        print(s_c)
+        res = full_stat(*args)
+        if res is None:
+            res = full_minor_stat(*args)
+            if res is None:
+                res = reduced_1_stat(*args)
+                if res is None:
+                    res = reduced_2_stat(*args)
+                    if res is None:
+                        res = reduced_3_stat(*args)
+                        if res is None:
+                            res = reduced_4_stat(*args)
+
+        if res is not None:
+            s1, s2, d1, d2 = res
+            s = s1 + ' ' * d1 + ps + ' ' * d2 + s2
+            s_before = s[:math.ceil(width * p)].replace(' ', repl_ch)
+            if (len(s_before) > 0) and (s_before[-1] == repl_ch):
+                s_before = s_before[:-1] + '>'
+            s_after = s[math.ceil(width * p):]
+
+            s_before = kw_bold(s_before, ch_after=[repl_ch, '>'])
+            s_after = kw_bold(s_after, ch_after=[' '])
+            stat = (COLTHM['PRE_COL'] + prepend + terminal.ESC_DEFAULT +
+                    COLTHM['BAR_COL'] + terminal.ESC_BOLD + '[' + terminal.ESC_RESET_BOLD + s_before + terminal.ESC_DEFAULT +
+                    s_after + terminal.ESC_BOLD + COLTHM['BAR_COL'] + ']' + terminal.ESC_NO_CHAR_ATTR)
+        else:
+            ps = ps.strip()
+            if p == 1:
+                ps = ' ' + ps
+            stat = prepend + ps
+
+    return stat
+
+
+def show_stat_ProgressBarFancy(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
+    stat = _stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs)
+    print(stat)
 
 class ProgressBarFancy(Progress):
     """
@@ -1105,162 +1220,39 @@ class ProgressBarFancy(Progress):
             width [int/'auto'] - the number of characters used to show the Progress bar,
             use 'auto' to determine width from terminal information -> see _set_width
         """            
-        Progress.__init__(self, *args, **kwargs)
-        
-    @staticmethod        
-    def get_d(s1, s2, width, lp, lps):
-        d = width-len(remove_ESC_SEQ_from_string(s1))-len(remove_ESC_SEQ_from_string(s2))-2-lp-lps
-        if d >= 0:
-            d1 = d // 2
-            d2 = d - d1
-            return s1, s2, d1, d2
-
-    @staticmethod
-    def full_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
-        s1 = "TET {} {:>12} TTG {}".format(tet, speed, ttg)
-        s2 = "ETA {} ORT {}".format(eta, ort)
-        return ProgressBarFancy.get_d(s1, s2, width, lp, lps)
+        Progress.__init__(self, *args, show_stat = show_stat_ProgressBarFancy, **kwargs)
 
 
-    @staticmethod
-    def full_minor_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
-        s1 = "E {} {:>12} G {}".format(tet, speed, ttg)
-        s2 = "A {} O {}".format(eta, ort)
-        return ProgressBarFancy.get_d(s1, s2, width, lp, lps)
+def show_stat_ProgressBarCounterFancy(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
+    counter_count = kwargs['counter_count'][i]
+    counter_speed = kwargs['counter_speed'][i]
+    counter_tet = time.time() - kwargs['init_time']
 
-    @staticmethod
-    def reduced_1_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
-        s1 = "E {} {:>12} G {}".format(tet, speed, ttg)
-        s2 = "O {}".format(ort)
-        return ProgressBarFancy.get_d(s1, s2, width, lp, lps)  
+    s_c = "{}{}{} [{}] {}#{}".format(terminal.ESC_NO_CHAR_ATTR,
+                                     COLTHM['PRE_COL']+prepend+terminal.ESC_DEFAULT,
+                                     humanize_time(counter_tet),
+                                     humanize_speed(counter_speed.value),
+                                     COLTHM['BAR_COL'],
+                                     str(counter_count.value) + terminal.ESC_DEFAULT)
 
-    @staticmethod
-    def reduced_2_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
-        s1 = "E {} G {}".format(tet, ttg)
-        s2 = "O {}".format(ort)
-        return ProgressBarFancy.get_d(s1, s2, width, lp, lps)
-    
-    @staticmethod
-    def reduced_3_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
-        s1 = "E {} G {}".format(tet, ttg)
-        s2 = ''
-        return ProgressBarFancy.get_d(s1, s2, width, lp, lps)
-    
-    @staticmethod
-    def reduced_4_stat(p, tet, speed, ttg, eta, ort, repl_ch, width, lp, lps):
-        s1 = ''
-        s2 = ''
-        return ProgressBarFancy.get_d(s1, s2, width, lp, lps)    
-
-    @staticmethod        
-    def kw_bold(s, ch_after):
-        kws = ['TET', 'TTG', 'ETA', 'ORT', 'E', 'G', 'A', 'O']
-        for kw in kws:
-            for c in ch_after:
-                s = s.replace(kw + c, ESC_BOLD + kw + ESC_RESET_BOLD + c)
-            
-        return s
-
-    @staticmethod        
-    def _stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
-        if (max_count_value is None) or (max_count_value == 0):
-            # only show current absolute progress as number and estimated speed
-            stat = "{}{} [{}] {}#{}    ".format(COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
-                                                humanize_time(tet),
-                                                humanize_speed(speed),
-                                                COLTHM['BAR_COL'],
-                                                str(count_value) + ESC_DEFAULT)
+    if max_count_value is not None:
+        if width == 'auto':
+            width = terminal.get_terminal_width()
+        s_c += ' - '
+        if max_count_value == 0:
+            s_c = "{}{} [{}] {}#{}    ".format(s_c, humanize_time(tet), humanize_speed(speed),
+                                               COLTHM['BAR_COL'], str(count_value)+terminal.ESC_DEFAULT)
         else:
-            if width == 'auto':
-                width = get_terminal_width()
-            # deduce relative progress
-            p = count_value / max_count_value
-            if p < 1:
-                ps = " {:.1%} ".format(p)
-            else:
-                ps = " {:.0%} ".format(p)
-            
-            if ttg is None:
-                eta = '--'
-                ort = None
-            else:
-                eta = datetime.datetime.fromtimestamp(time.time() + ttg).strftime("%Y%m%d_%H:%M:%S")
-                ort = tet + ttg
-                
-            tet = humanize_time(tet)
-            speed = '['+humanize_speed(speed)+']'
-            ttg = humanize_time(ttg)
-            ort = humanize_time(ort)
-            repl_ch = '-'
-            lp = len(prepend)
-            
-            args = p, tet, speed, ttg, eta, ort, repl_ch, width, lp, len(ps)
-            
-            res = ProgressBarFancy.full_stat(*args)
-            if res is None:
-                res = ProgressBarFancy.full_minor_stat(*args)
-                if res is None:
-                    res = ProgressBarFancy.reduced_1_stat(*args)
-                    if res is None:
-                        res = ProgressBarFancy.reduced_2_stat(*args)
-                        if res is None:
-                            res = ProgressBarFancy.reduced_3_stat(*args)
-                            if res is None:
-                                res = ProgressBarFancy.reduced_4_stat(*args)
-                                    
-            if res is not None:
-                s1, s2, d1, d2 = res                
-                s = s1 + ' '*d1 + ps + ' '*d2 + s2
-                s_before = s[:math.ceil(width*p)].replace(' ', repl_ch)
-                if (len(s_before) > 0) and (s_before[-1] == repl_ch):
-                    s_before = s_before[:-1] + '>'
-                s_after  = s[math.ceil(width*p):]
-                
-                s_before = ProgressBarFancy.kw_bold(s_before, ch_after=[repl_ch, '>'])
-                s_after = ProgressBarFancy.kw_bold(s_after, ch_after=[' '])
-                stat = (COLTHM['PRE_COL']+prepend+ESC_DEFAULT+
-                        COLTHM['BAR_COL']+ESC_BOLD + '[' + ESC_RESET_BOLD + s_before + ESC_DEFAULT +
-                        s_after + ESC_BOLD + COLTHM['BAR_COL']+']' + ESC_NO_CHAR_ATTR)
-            else:
-                ps = ps.strip()
-                if p == 1:
-                    ps = ' '+ps
-                stat = prepend + ps
+            _width = width - terminal.len_string_without_ESC(s_c)
+            s_c += _stat(count_value, max_count_value, '', speed, tet, ttg, _width, i)
 
-        return stat
-
-    @staticmethod        
-    def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
-        stat = ProgressBarFancy._stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs)
-        print(stat)
+    print(s_c)
 
 class ProgressBarCounterFancy(ProgressBarCounter):
-    @staticmethod
-    def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
-        counter_count = kwargs['counter_count'][i]
-        counter_speed = kwargs['counter_speed'][i]
-        counter_tet = time.time() - kwargs['init_time']
+    def __init__(self, *args, **kwargs):
+        ProgressBarCounter.__init__(self, *args, **kwargs)
+        self.show_stat = show_stat_ProgressBarCounterFancy
 
-        s_c = "{}{}{} [{}] {}#{}".format(ESC_NO_CHAR_ATTR,
-                                         COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
-                                         humanize_time(counter_tet),
-                                         humanize_speed(counter_speed.value),
-                                         COLTHM['BAR_COL'],
-                                         str(counter_count.value) + ESC_DEFAULT)
-
-        if max_count_value is not None:
-            if width == 'auto':
-                width = get_terminal_width()
-            s_c += ' - '
-            if max_count_value == 0:
-                s_c = "{}{} [{}] {}#{}    ".format(s_c, humanize_time(tet), humanize_speed(speed),
-                                                   COLTHM['BAR_COL'], str(count_value)+ESC_DEFAULT)
-            else:
-                _width = width - len_string_without_ESC(s_c)
-                s_c += ProgressBarFancy._stat(count_value, max_count_value, '', speed, tet, ttg, _width, i)
-
-        print(s_c)
-                        
 
 class SIG_handler_Loop(object):
     """class to setup signal handling for the Loop class
@@ -1378,60 +1370,6 @@ def getCountKwargs(func):
     # else
     return None
 
-
-def get_terminal_size(defaultw=80):
-    """ Checks various methods to determine the terminal size
-    
-    
-    Methods:
-    - shutil.get_terminal_size (only Python3)
-    - fcntl.ioctl
-    - subprocess.check_output
-    - os.environ
-    
-    Parameters
-    ----------
-    defaultw : int
-        Default width of terminal.
-    
-    
-    Returns
-    -------
-    width, height : int
-        Width and height of the terminal. If one of them could not be
-        found, None is return in its place.
-    
-    """
-    if hasattr(shutil_get_terminal_size, "__call__"):
-        return shutil_get_terminal_size()
-    else:
-        try:
-            import fcntl, termios, struct
-            fd = 0
-            hw = struct.unpack('hh', fcntl.ioctl(fd, termios.TIOCGWINSZ,
-                                                                '1234'))
-            return (hw[1], hw[0])
-        except:
-            try:
-                out = sp.check_output(["tput", "cols"])
-                width = int(out.decode("utf-8").strip())
-                return (width, None)
-            except:
-                try:
-                    hw = (os.environ['LINES'], os.environ['COLUMNS'])
-                    return (hw[1], hw[0])
-                except:
-                    return (defaultw, None)
-
-    
-def get_terminal_width(default=80, name=None):
-    try:
-        width = get_terminal_size(defaultw=default)[0]
-    except:
-        width = default
-    return width
-
-
 def humanize_speed(c_per_sec):
     """convert a speed in counts per second to counts per [s, min, h, d], choosing the smallest value greater zero.
     """
@@ -1463,195 +1401,6 @@ def humanize_time(secs):
         return '{:02d}:{:02d}:{:02d}'.format(int(hours), int(mins), int(secs))
     
 
-
-def len_string_without_ESC(s):
-    return len(remove_ESC_SEQ_from_string(s))
-
-def remove_ESC_SEQ_from_string(s):
-    old_idx = 0
-    new_s = ""
-    ESC_CHAR_START = "\033["
-    while True:
-        idx = s.find(ESC_CHAR_START, old_idx)
-        if idx == -1:
-            break
-        j = 2
-        while s[idx+j] in '0123456789':
-            j += 1
-
-        new_s += s[old_idx:idx]
-        old_idx = idx+j+1
-
-    new_s += s[old_idx:]
-    return new_s
-
-    # for esc_seq in ESC_SEQ_SET:
-    #     s = s.replace(esc_seq, '')
-    # return s
-
-def _close_kind(stack, which_kind):
-    stack_tmp = []
-    s = ""
-
-    # close everything until which_kind is found
-    while True:
-        kind, start, end = stack.pop()
-        if kind != which_kind:
-            s += end
-            stack_tmp.append((kind, start, end))
-        else:
-            break
-
-    # close which_kind
-    s = end
-
-    # start everything that was closed before which_kind
-    for kind, start, end in stack_tmp:
-        s += start
-        stack.append((kind, start, end))
-
-    return s
-
-def _close_all(stack):
-    s = ""
-    for kind, start, end in stack:
-        s += end
-    return s
-
-def _open_color(stack, color):
-    start = '<span style="color:{}">'.format(color)
-    end = '</span>'
-    stack.append(('color', start, end))
-    return start
-
-def _open_bold(stack):
-    start = '<b>'
-    end = '</b>'
-    stack.append(('bold', start, end))
-    return start
-
-def ESC_SEQ_to_HTML(s):
-    old_idx = 0
-    new_s = ""
-    ESC_CHAR_START = "\033["
-    color_on = False
-    bold_on = False
-    stack = []
-    while True:
-        idx = s.find(ESC_CHAR_START, old_idx)
-        if idx == -1:
-            break
-        j = 2
-        while s[idx + j] in '0123456789':
-            j += 1
-
-        new_s += s[old_idx:idx]
-        old_idx = idx + j + 1
-        escseq = s[idx:idx+j+1]
-
-        if escseq in ESC_COLOR_TO_HTML:  # set color
-            if color_on:
-                new_s += _close_kind(stack, which_kind = 'color')
-            new_s += _open_color(stack, ESC_COLOR_TO_HTML[escseq])
-            color_on = True
-        elif escseq == ESC_DEFAULT:      # unset color
-            if color_on:
-                new_s += _close_kind(stack, which_kind = 'color')
-                color_on = False
-        elif escseq == ESC_BOLD:
-            if not bold_on:
-                new_s += _open_bold(stack)
-                bold_on = True
-        elif escseq == ESC_RESET_BOLD:
-            if bold_on:
-                new_s += _close_kind(stack, which_kind = 'bold')
-                bold_on = False
-        elif escseq == ESC_NO_CHAR_ATTR:
-            if color_on:
-                new_s += _close_kind(stack, which_kind = 'color')
-                color_on = False
-            if bold_on:
-                new_s += _close_kind(stack, which_kind = 'bold')
-                bold_on = False
-        else:
-            pass
-
-    new_s += s[old_idx:]
-    new_s += _close_all(stack)
-
-    return new_s
-
-
-
-def terminal_reserve(progress_obj, terminal_obj=None, identifier=None):
-    """ Registers the terminal (stdout) for printing.
-    
-    Useful to prevent multiple processes from writing progress bars
-    to stdout.
-    
-    One process (server) prints to stdout and a couple of subprocesses
-    do not print to the same stdout, because the server has reserved it.
-    Of course, the clients have to be nice and check with 
-    terminal_reserve first if they should (not) print.
-    Nothing is locked.
-    
-    Returns
-    -------
-    True if reservation was successful (or if we have already reserved this tty),
-    False if there already is a reservation from another instance.
-    """
-    if terminal_obj is None:
-        terminal_obj = sys.stdout
-    
-    if identifier is None:
-        identifier = ''
-
-    
-    if terminal_obj in TERMINAL_RESERVATION:    # terminal was already registered
-        log.debug("this terminal %s has already been added to reservation list", terminal_obj)
-        
-        if TERMINAL_RESERVATION[terminal_obj] is progress_obj:
-            log.debug("we %s have already reserved this terminal %s", progress_obj, terminal_obj)
-            return True
-        else:
-            log.debug("someone else %s has already reserved this terminal %s", TERMINAL_RESERVATION[terminal_obj], terminal_obj)
-            return False
-    else:                                       # terminal not yet registered
-        log.debug("terminal %s was reserved for us %s", terminal_obj, progress_obj)
-        TERMINAL_RESERVATION[terminal_obj] = progress_obj
-        return True
-
-
-def terminal_unreserve(progress_obj, terminal_obj=None, verbose=0, identifier=None):
-    """ Unregisters the terminal (stdout) for printing.
-    
-    an instance (progress_obj) can only unreserve the tty (terminal_obj) when it also reserved it
-    
-    see terminal_reserved for more information
-    
-    Returns
-    -------
-    None
-    """
-    
-    if terminal_obj is None:
-        terminal_obj =sys.stdout
-
-    if identifier is None:
-        identifier = ''
-    else:
-        identifier = identifier + ': '         
-    
-    po = TERMINAL_RESERVATION.get(terminal_obj)
-    if po is None:
-        log.debug("terminal %s was not reserved, nothing happens", terminal_obj)
-    else:
-        if po is progress_obj:
-            log.debug("terminal %s now unreserned", terminal_obj)
-            del TERMINAL_RESERVATION[terminal_obj]
-        else:
-            log.debug("you %s can NOT unreserve terminal %s be cause it was reserved by %s", progress_obj, terminal_obj, po)
-            
 def codecov_subprocess_check():
     print("this line will be only called from a subprocess")
 
@@ -1669,104 +1418,8 @@ for s in dir(signal):
         else:
             signal_dict[n] = s
 
-def ESC_MOVE_LINE_UP(n):
-    return "\033[{}A".format(n)
-
-
-def ESC_MOVE_LINE_DOWN(n):
-    return "\033[{}B".format(n)
-
-ESC_NO_CHAR_ATTR  = "\033[0m"
-
-ESC_BOLD          = "\033[1m"
-ESC_DIM           = "\033[2m"
-ESC_UNDERLINED    = "\033[4m"
-ESC_BLINK         = "\033[5m"
-ESC_INVERTED      = "\033[7m"
-ESC_HIDDEN        = "\033[8m"
-
-ESC_MY_MAGIC_ENDING = ESC_HIDDEN + ESC_NO_CHAR_ATTR
-
-# not widely supported, use '22' instead 
-# ESC_RESET_BOLD       = "\033[21m"
-
-ESC_RESET_DIM        = "\033[22m"
-ESC_RESET_BOLD       = ESC_RESET_DIM
-
-ESC_RESET_UNDERLINED = "\033[24m"
-ESC_RESET_BLINK      = "\033[25m"
-ESC_RESET_INVERTED   = "\033[27m"
-ESC_RESET_HIDDEN     = "\033[28m"
-
-ESC_DEFAULT       = "\033[39m"
-ESC_BLACK         = "\033[30m"
-ESC_RED           = "\033[31m"
-ESC_GREEN         = "\033[32m"
-ESC_YELLOW        = "\033[33m"
-ESC_BLUE          = "\033[34m"
-ESC_MAGENTA       = "\033[35m"
-ESC_CYAN          = "\033[36m"
-ESC_LIGHT_GREY    = "\033[37m"
-ESC_DARK_GREY     = "\033[90m"
-ESC_LIGHT_RED     = "\033[91m"
-ESC_LIGHT_GREEN   = "\033[92m"
-ESC_LIGHT_YELLOW  = "\033[93m"
-ESC_LIGHT_BLUE    = "\033[94m"
-ESC_LIGHT_MAGENTA = "\033[95m"
-ESC_LIGHT_CYAN    = "\033[96m"
-ESC_WHITE         = "\033[97m"
-
-ESC_COLOR_TO_HTML = {
-    ESC_BLACK         : '#000000',
-    ESC_RED           : '#800000',
-    ESC_GREEN         : '#008000',
-    ESC_YELLOW        : '#808000',
-    ESC_BLUE          : '#000080',
-    ESC_MAGENTA       : '#800080',
-    ESC_CYAN          : '#008080',
-    ESC_LIGHT_GREY    : '#c0c0c0',
-    ESC_DARK_GREY     : '#808080',
-    ESC_LIGHT_RED     : '#ff0000',
-    ESC_LIGHT_GREEN   : '#00ff00',
-    ESC_LIGHT_YELLOW  : '#ffff00',
-    ESC_LIGHT_BLUE    : '#0000ff',
-    ESC_LIGHT_MAGENTA : '#ff00ff',
-    ESC_LIGHT_CYAN    : '#00ffff',
-    ESC_WHITE         : '#ffffff'}
-
-ESC_SEQ_SET = [ESC_NO_CHAR_ATTR,
-               ESC_BOLD,
-               ESC_DIM,
-               ESC_UNDERLINED,
-               ESC_BLINK,
-               ESC_INVERTED,
-               ESC_HIDDEN,
-               ESC_RESET_BOLD,
-               ESC_RESET_DIM,
-               ESC_RESET_UNDERLINED,
-               ESC_RESET_BLINK,
-               ESC_RESET_INVERTED,
-               ESC_RESET_HIDDEN,
-               ESC_DEFAULT,
-               ESC_BLACK,
-               ESC_RED,
-               ESC_GREEN,
-               ESC_YELLOW,
-               ESC_BLUE,
-               ESC_MAGENTA,
-               ESC_CYAN,
-               ESC_LIGHT_GREY,
-               ESC_DARK_GREY,
-               ESC_LIGHT_RED,
-               ESC_LIGHT_GREEN,
-               ESC_LIGHT_YELLOW,
-               ESC_LIGHT_BLUE,
-               ESC_LIGHT_MAGENTA,
-               ESC_LIGHT_CYAN,
-               ESC_WHITE]
-
-_colthm_term_default = {'PRE_COL': ESC_RED, 'BAR_COL': ESC_LIGHT_GREEN}
-_colthm_ipyt_default = {'PRE_COL': ESC_RED, 'BAR_COL': ESC_LIGHT_BLUE}
+_colthm_term_default = {'PRE_COL': terminal.ESC_RED, 'BAR_COL': terminal.ESC_LIGHT_GREEN}
+_colthm_ipyt_default = {'PRE_COL': terminal.ESC_RED, 'BAR_COL': terminal.ESC_LIGHT_BLUE}
 
 color_themes = {'term_default': _colthm_term_default,
                 'ipyt_default': _colthm_ipyt_default}
@@ -1779,11 +1432,6 @@ def choose_color_theme(name):
     else:
         warnings.warn("no such color theme {}".format(name))
 
-
-# terminal reservation list, see terminal_reserve
-TERMINAL_RESERVATION = {}
-# these are classes that print progress bars, see terminal_reserve
-TERMINAL_PRINT_LOOP_CLASSES = ["ProgressBar", "ProgressBarCounter", "ProgressBarFancy", "ProgressBarCounterFancy"]
 
 # keyword arguments that define counting in wrapped functions
 validCountKwargs = [

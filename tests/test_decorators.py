@@ -9,6 +9,7 @@ import time
 from os.path import abspath, dirname, split
 # Add parent directory to beginning of path variable
 sys.path = [split(dirname(abspath(__file__)))[0]] + sys.path
+print(sys.path)
 
 import progression
 from progression import decorators
