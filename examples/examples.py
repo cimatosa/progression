@@ -320,10 +320,10 @@ def run_example_ProgressBarFancy_multi():
 
 
 if __name__ == "__main__":
-    # import logging
-    # pr.log.setLevel(logging.DEBUG)
-    # run_example_ProgressBar()
-    # run_example_ProgressBarFancy()
+#     import logging
+#     pr.log.setLevel(logging.DEBUG)
+#     run_example_ProgressBar()
+    run_example_ProgressBarFancy()
     # run_example_ProgressBarDecorator()
     # run_example_max_count_is_none()
     # run_example_ProgressBarCounter()

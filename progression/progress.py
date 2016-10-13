@@ -99,6 +99,7 @@ import threading
 import time
 import traceback
 import warnings
+import pickle
 
 _IPYTHON = True
 try:
@@ -240,7 +241,57 @@ def get_identifier(name=None, pid=None, bold=True):
     if name is None:
         return "{}PID {}{}".format(esc_bold, pid, esc_no_char_attr)
     else:
-        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)    
+        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)
+    
+def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, log_queue, sigint, sigterm, name, logging_level, conn_send):
+    """
+        to be executed as a separate process (that's why this functions is declared static)
+    """
+    prefix = get_identifier(name)+' '
+    global log
+    log = logging.getLogger(__name__+'.'+"log_{}".format(get_identifier(name, bold=False)))
+    log.setLevel(logging_level)
+    
+    log.debug("the func %s", func)
+    log.debug("the args %s", args)
+
+    # try:
+    #     log.addHandler(QueueHandler(log_queue))
+    # except NameError:
+    #     log.addHandler(def_handl)
+        
+    sys.stdout = StdoutPipe(conn_send)
+              
+    log.debug("enter wrapper_func")            
+
+    SIG_handler_Loop(sigint, sigterm, log, prefix)
+
+    while shared_mem_run.value:
+        try:
+            # in pause mode, simply sleep 
+            if shared_mem_pause.value:
+                quit_loop = False
+            else:
+                # if not pause mode -> call func and see what happens
+                try:
+                    quit_loop = func(*args)
+                except LoopInterruptError:
+                    raise
+                except Exception as e:
+                    log.error("error %s occurred in loop alling 'func(*args)'", type(e))
+                    log.info("show traceback.print_exc()\n%s", traceback.format_exc())
+                    sys.exit(-1)
+
+                if quit_loop is True:
+                    log.debug("loop stooped because func returned True")
+                    break
+                
+            time.sleep(interval)
+        except LoopInterruptError:
+            log.debug("quit wrapper_func due to InterruptedError")
+            break
+
+    log.debug("wrapper_func terminates gracefully")        
 
 class Loop(object):
     """
@@ -364,54 +415,6 @@ class Loop(object):
             pass
         log.debug("wait for monitor thread to join")
         self._monitor_thread.join()      
-
-    @staticmethod
-    def _wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, log_queue, sigint, sigterm, name, logging_level, conn_send):
-        """
-            to be executed as a separate process (that's why this functions is declared static)
-        """
-        prefix = get_identifier(name)+' '
-        global log
-        log = logging.getLogger(__name__+'.'+"log_{}".format(get_identifier(name, bold=False)))
-        log.setLevel(logging_level)
-
-        # try:
-        #     log.addHandler(QueueHandler(log_queue))
-        # except NameError:
-        #     log.addHandler(def_handl)
-            
-        sys.stdout = StdoutPipe(conn_send)
-                  
-        log.debug("enter wrapper_func")            
-
-        SIG_handler_Loop(sigint, sigterm, log, prefix)
-
-        while shared_mem_run.value:
-            try:
-                # in pause mode, simply sleep 
-                if shared_mem_pause.value:
-                    quit_loop = False
-                else:
-                    # if not pause mode -> call func and see what happens
-                    try:
-                        quit_loop = func(*args)
-                    except LoopInterruptError:
-                        raise
-                    except Exception as e:
-                        log.error("error %s occurred in loop alling 'func(*args)'", type(e))
-                        log.info("show traceback.print_exc()\n%s", traceback.format_exc())
-                        sys.exit(-1)
-    
-                    if quit_loop is True:
-                        log.debug("loop stooped because func returned True")
-                        break
-                    
-                time.sleep(interval)
-            except LoopInterruptError:
-                log.debug("quit wrapper_func due to InterruptedError")
-                break
-
-        log.debug("wrapper_func terminates gracefully")
         
     def _monitor_stdout_pipe(self):
         while True:
@@ -451,7 +454,9 @@ class Loop(object):
         self._monitor_thread.start()
         log.debug("started monitor thread")
         
-        self._proc = mp.Process(target = Loop._wrapper_func, 
+        pickle.dumps(_loop_wrapper_func)
+        
+        self._proc = mp.Process(target = _loop_wrapper_func, 
                                 args   = (self.func, self.args, self._run, self._pause, self.interval, 
                                           log_queue, self._sigint, self._sigterm, name, log.level, self.conn_send))
         self._proc.start()
@@ -658,22 +663,7 @@ class Progress(Loop):
         
         # setup loop class with func
         Loop.__init__(self,
-                      func = Progress._show_stat_wrapper_multi,
-
-                      args = (self.count,
-                              self.last_count,
-                              self.start_time,
-                              self.max_count,
-                              self.speed_calc_cycles,
-                              self.width,
-                              self.q,
-                              self.last_speed,
-                              self.prepend,
-                              self.__class__.show_stat,
-                              self.len,
-                              self.add_args,
-                              self.lock,
-                              self.info_line),
+                      func = self,
                       interval = interval,
                       sigint   = sigint,
                       sigterm  = sigterm,
@@ -682,68 +672,46 @@ class Progress(Loop):
     def __exit__(self, *exc_args):
         self.stop()
             
-        
-    @staticmethod
-    def _calc(count, 
-              last_count, 
-              start_time, 
-              max_count, 
-              speed_calc_cycles, 
-              q, 
-              last_speed,
-              lock):
-        """do the pre calculations in order to get TET, speed, TTG
-        
-        :param count:               count 
-        :param last_count:          count at the last call, allows to treat the case of no progress
-            between sequential calls
-        :param start_time:          the time when start was triggered
-        :param max_count:           the maximal value count 
-        :type max_count:
-        :param speed_calc_cycles:
-        :type speed_calc_cycles:
-        :param q:
-        :type q:
-        :param last_speed:
-        :type last_speed:
-        :param lock:
-        :type lock:
+
+    def _calc(self, i):
         """
-        count_value = count.value
-        start_time_value = start_time.value
+            do the pre calculations in order to get TET, speed, TTG for the i-th progress
+        """
+        count_value = self.count[i].value
+        start_time_value = self.start_time[i].value
         current_time = time.time()
         
-        if last_count.value != count_value:
+        if self.last_count[i].value != count_value:
             # some progress happened
         
-            with lock:
+            with self.lock[i]:
                 # save current state (count, time) to queue
                 
-                q.put((count_value, current_time))
+                self.q[i].put((count_value, current_time))
     
                 # get older state from queue (or initial state)
                 # to to speed estimation                
-                if q.qsize() > speed_calc_cycles:
-                    old_count_value, old_time = q.get()
+                if self.q[i].qsize() > self.speed_calc_cycles:
+                    old_count_value, old_time = self.q[i].get()
                 else:
                     old_count_value, old_time = 0, start_time_value
             
-            last_count.value = count_value
+            self.last_count[i].value = count_value
             #last_old_count.value = old_count_value
             #last_old_time.value = old_time
             
             speed = (count_value - old_count_value) / (current_time - old_time)
-            last_speed.value = speed 
+            self.last_speed[i].value = speed 
         else:
             # progress has not changed since last call
             # use also old (cached) data from the queue
             #old_count_value, old_time = last_old_count.value, last_old_time.value
-            speed = last_speed.value  
+            speed = self.last_speed[i].value  
 
-        if (max_count is None):
+        if (self.max_count[i] is None):
             max_count_value = None
         else:
-            max_count_value = max_count.value
+            max_count_value = self.max_count[i].value
             
         tet = (current_time - start_time_value)
         
@@ -779,91 +747,27 @@ class Progress(Loop):
             convenient functions to call the static show_stat_wrapper_multi with
             the given class members
         """
-        Progress._show_stat_wrapper_multi(self.count,
-                                          self.last_count, 
-                                          self.start_time, 
-                                          self.max_count, 
-                                          self.speed_calc_cycles,
-                                          self.width,
-                                          self.q,
-                                          self.last_speed,
-                                          self.prepend,
-                                          self.__class__.show_stat,
-                                          self.len, 
-                                          self.add_args,
-                                          self.lock,
-                                          self.info_line,
-                                          no_move_up=True)
-        
-    @staticmethod        
-    def _show_stat_wrapper(count, 
-                          last_count, 
-                          start_time, 
-                          max_count, 
-                          speed_calc_cycles, 
-                          width, 
-                          q,
-                          last_speed,
-                          prepend, 
-                          show_stat_function,
-                          add_args, 
-                          i, 
-                          lock):
+        self.__call__(no_move_up=True)
+               
+    def _show_stat_wrapper(self, i):
         """
             calculate 
         """
-        count_value, max_count_value, speed, tet, ttg, = Progress._calc(count, 
-                                                                        last_count, 
-                                                                        start_time, 
-                                                                        max_count, 
-                                                                        speed_calc_cycles, 
-                                                                        q,
-                                                                        last_speed, 
-                                                                        lock) 
-        return show_stat_function(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **add_args)
+        count_value, max_count_value, speed, tet, ttg, = self._calc(i) 
+        return self.show_stat(count_value, max_count_value, self.prepend[i], speed, tet, ttg, self.width, i, **self.add_args)
 
-    @staticmethod
-    def _show_stat_wrapper_multi(count, 
-                                last_count, 
-                                start_time, 
-                                max_count, 
-                                speed_calc_cycles, 
-                                width, 
-                                q, 
-                                last_speed,
-                                prepend, 
-                                show_stat_function, 
-                                len_, 
-                                add_args,
-                                lock,
-                                info_line,
-                                no_move_up=False):
-        """
-            call the static method show_stat_wrapper for each process
-        """
+    def __call__(self, no_move_up=False):
 #         print(ESC_BOLD, end='')
 #         sys.stdout.flush()
-        for i in range(len_):
-            Progress._show_stat_wrapper(count[i], 
-                                       last_count[i], 
-                                       start_time[i], 
-                                       max_count[i], 
-                                       speed_calc_cycles, 
-                                       width, 
-                                       q[i],
-                                       last_speed[i],
-                                       prepend[i], 
-                                       show_stat_function, 
-                                       add_args, 
-                                       i, 
-                                       lock[i])
-        n = len_
-        if info_line is not None:
-            s = info_line.value.decode('utf-8')
+        for i in range(self.len):
+            self._show_stat_wrapper(i)
+        n = self.len
+        if self.info_line is not None:
+            s = self.info_line.value.decode('utf-8')
             s = s.split('\n')
             n += len(s)
             for si in s:
-                if width == 'auto':
+                if self.width == 'auto':
                     width = get_terminal_width()
                 if len(si) > width:
                     si = si[:width]
@@ -887,9 +791,8 @@ class Progress(Loop):
             self._reset_all()
         else:
             self._reset_i(i)
-
-    @staticmethod        
-    def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, **kwargs):
+       
+    def show_stat(self, count_value, max_count_value, prepend, speed, tet, ttg, width, **kwargs):
         """A function that formats the progress information
         
         This function will be called periodically for each progress that is monitored.
@@ -967,17 +870,18 @@ class ProgressBar(Progress):
 
     @staticmethod        
     def show_stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
+        if width == 'auto':
+            width = get_terminal_width()
         if (max_count_value is None) or (max_count_value == 0):
             # only show current absolute progress as number and estimated speed
-            print("{}{}{} [{}] {}#{}    ".format(ESC_NO_CHAR_ATTR,
-                                                 COLTHM['PRE_COL'] + prepend + ESC_DEFAULT,
-                                                 humanize_time(tet), humanize_speed(speed),
-                                                 ESC_BOLD + COLTHM['BAR_COL'],
-                                                 count_value))
+            s = "{}{}{} [{}] {}#{}".format(ESC_NO_CHAR_ATTR,
+                                           COLTHM['PRE_COL'] + prepend + ESC_DEFAULT,
+                                           humanize_time(tet), humanize_speed(speed),
+                                           ESC_BOLD + COLTHM['BAR_COL'],
+                                           count_value)
+            l = len_string_without_ESC(s)
+            print(s + ' '*(width-l))
         else:
-            if width == 'auto':
-                width = get_terminal_width()
-            
             # deduce relative progress and show as bar on screen
             if ttg is None:
                 s3 = " TTG --"
@@ -1072,11 +976,13 @@ class ProgressBarCounter(Progress):
             width = get_terminal_width()
         
         if (max_count_value is None) or (max_count_value == 0):
-            s_c = "{}{} [{}] {}#{}    ".format(s_c,
-                                               humanize_time(tet),
-                                               humanize_speed(speed),
-                                               COLTHM['BAR_COL'],
-                                               str(count_value)+ ESC_DEFAULT)
+            s_c = "{}{} [{}] {}#{}".format(s_c,
+                                           humanize_time(tet),
+                                           humanize_speed(speed),
+                                           COLTHM['BAR_COL'],
+                                           str(count_value)+ ESC_DEFAULT)
+            l = len_string_without_ESC(s_c)
+            s_c = s_c + " "*(width-l)
         else:
             if ttg is None:
                 s3 = " TTG --"
@@ -1163,16 +1069,18 @@ class ProgressBarFancy(Progress):
 
     @staticmethod        
     def _stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kwargs):
+        if width == 'auto':
+            width = get_terminal_width()        
         if (max_count_value is None) or (max_count_value == 0):
             # only show current absolute progress as number and estimated speed
-            stat = "{}{} [{}] {}#{}    ".format(COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
-                                                humanize_time(tet),
-                                                humanize_speed(speed),
-                                                COLTHM['BAR_COL'],
-                                                str(count_value) + ESC_DEFAULT)
-        else:
-            if width == 'auto':
-                width = get_terminal_width()
+            stat = "{}{} [{}] {}#{}".format(COLTHM['PRE_COL']+prepend+ESC_DEFAULT,
+                                            humanize_time(tet),
+                                            humanize_speed(speed),
+                                            COLTHM['BAR_COL'],
+                                            str(count_value) + ESC_DEFAULT)
+            l = len_string_without_ESC(stat)
+            stat += ' '*(width-l)
+        else:    
             # deduce relative progress
             p = count_value / max_count_value
             if p < 1:
@@ -1247,17 +1155,21 @@ class ProgressBarCounterFancy(ProgressBarCounter):
                                          humanize_speed(counter_speed.value),
                                          COLTHM['BAR_COL'],
                                          str(counter_count.value) + ESC_DEFAULT)
-
+        if width == 'auto':
+            width = get_terminal_width()
         if max_count_value is not None:
-            if width == 'auto':
-                width = get_terminal_width()
             s_c += ' - '
             if max_count_value == 0:
-                s_c = "{}{} [{}] {}#{}    ".format(s_c, humanize_time(tet), humanize_speed(speed),
-                                                   COLTHM['BAR_COL'], str(count_value)+ESC_DEFAULT)
+                s_c = "{}{} [{}] {}#{}".format(s_c, humanize_time(tet), humanize_speed(speed),
+                                               COLTHM['BAR_COL'], str(count_value)+ESC_DEFAULT)
+                l = len_string_without_ESC(s_c)
+                s_c += ' '*(width-l)
             else:
                 _width = width - len_string_without_ESC(s_c)
                 s_c += ProgressBarFancy._stat(count_value, max_count_value, '', speed, tet, ttg, _width, i)
+        else:
+            l = len_string_without_ESC(s_c)
+            s_c += ' '*(width-l)
 
         print(s_c)
                         
