@@ -25,6 +25,7 @@ install:
 script:
 - python tests/test_progress.py
 - py.test tests/ -v --cov=progression --cov-report term-missing
+- python setup.py install
 
 after_success:
 - bash <(curl -s https://codecov.io/bash)
