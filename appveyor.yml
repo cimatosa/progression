@@ -61,7 +61,7 @@ install:
 
   # Check that we have the expected version and architecture for Python
   - "python --version"
-
+  - "conda install --yes pip" 
   - "pip install psutil"
   - "pip install pytest"
   - "pip install pytest-cov"
