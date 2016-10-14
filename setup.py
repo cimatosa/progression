@@ -6,6 +6,7 @@
 from setuptools import setup
 import os
 import sys
+import codecs
 from progression import __version__
 
 
@@ -18,7 +19,7 @@ version = __version__
 __this__ = os.path.abspath(os.path.dirname(__file__))
 
 # Get the long description from the relevant file
-with open(os.path.join(__this__, 'README.rst')) as f:
+with codecs.open(os.path.join(__this__, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 if __name__ == "__main__":
