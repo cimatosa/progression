@@ -18,7 +18,7 @@ version = __version__
 __this__ = os.path.abspath(os.path.dirname(__file__))
 
 # Get the long description from the relevant file
-with open(os.path.join(__this__, 'README.rst'), encoding='utf-8') as f:
+with open(os.path.join(__this__, 'README.rst')) as f:
     long_description = f.read()
 
 if __name__ == "__main__":
