@@ -348,7 +348,7 @@ def test_loop_pause():
         _kill_pid(loop.getpid())
                 
            
-def test_loop_logging():   
+def test_loop_logging():
     my_err = inMemoryBuffer()
     progression.def_handl.stream = my_err       
     ll = progression.log.level
@@ -1221,7 +1221,7 @@ def test_fork():
 
 
 if __name__ == "__main__":
-    progression.log.setLevel(logging.DEBUG)
+#    progression.log.setLevel(logging.DEBUG)
     func = [    
 #     test_humanize_time,
 #     test_codecov_subprocess_test,
@@ -1237,15 +1237,15 @@ if __name__ == "__main__":
 #     test_loop_need_sigkill_to_stop,
 #     test_loop_stdout_pipe,
 #     test_loop_pause,
-    test_loop_logging,
+#     test_loop_logging,
 #     test_loop_why_with_statement,
 #     test_loop_with_error_in_func,
 #     test_progress_bar_with_statement,
 #     test_progress_bar_multi,
 #     test_status_counter,
 #     test_status_counter_multi,
-#     test_intermediate_prints_while_running_progess_bar,
-#     test_intermediate_prints_while_running_progess_bar_multi,
+    test_intermediate_prints_while_running_progess_bar,
+    test_intermediate_prints_while_running_progess_bar_multi,
 #     test_progress_bar_counter,
 #     test_progress_bar_counter_non_max,
 #     test_progress_bar_counter_hide_bar,

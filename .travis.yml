@@ -6,6 +6,7 @@ notifications:
 branches:
   only:
   - master
+  - dev
 
 python:
 - '2.7'
@@ -22,6 +23,7 @@ install:
 - pip freeze
 
 script:
+- python tests/test_progress.py
 - py.test tests/ -v --cov=progression --cov-report term-missing
 
 after_success:
