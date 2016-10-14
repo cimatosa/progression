@@ -123,6 +123,8 @@ if sys.version_info[0] == 2:
         return int(old_math_ceil(f))
     math.ceil = my_int_ceil
     _jm_compatible_bytearray = lambda x: x
+    class TimeoutError(Exception):
+        pass
 elif sys.version_info[0] == 3:
     inMemoryBuffer = io.StringIO
     _jm_compatible_bytearray = bytearray
@@ -292,7 +294,7 @@ def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, s
     try:
         if mp.get_start_method() == "spawn":
             sys.stdin.close()
-    except NameError:
+    except AttributeError:
         pass
 
 

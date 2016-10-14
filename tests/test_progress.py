@@ -349,7 +349,7 @@ def test_loop_pause():
                 
            
 def test_loop_logging():   
-    my_err = io.StringIO()
+    my_err = inMemoryBuffer()
     progression.def_handl.stream = my_err       
     ll = progression.log.level
                 
@@ -1237,10 +1237,9 @@ if __name__ == "__main__":
 #     test_loop_need_sigkill_to_stop,
 #     test_loop_stdout_pipe,
 #     test_loop_pause,
-#     test_loop_logging,
+    test_loop_logging,
 #     test_loop_why_with_statement,
 #     test_loop_with_error_in_func,
-#     test_progress_bar,
 #     test_progress_bar_with_statement,
 #     test_progress_bar_multi,
 #     test_status_counter,
@@ -1266,7 +1265,7 @@ if __name__ == "__main__":
 #     test_ESC_SEQ,
 #     test_example_StdoutPipe,
 #     test_show_stat,
-    test_fork,
+#     test_fork,
     lambda: print("END")
     ]
     
