@@ -70,7 +70,7 @@ install:
   # CONDA installs
   # Pinned versions are defined in freeze_appveyor\pinned
   # - xcopy freeze_appveyor\pinned %PYTHON%\conda-meta\ /Y  
-  - "conda install --yes pip" 
+  - "conda install --yes pip numpy" 
   - "pip install psutil"
   - "pip install pytest"
   - "pip install pytest-cov"
