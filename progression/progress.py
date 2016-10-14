@@ -91,12 +91,6 @@ import logging
 import math
 import multiprocessing as mp
 from   multiprocessing.sharedctypes import Synchronized
-
-try:
-    mp.set_start_method('spawn')
-except RuntimeError:
-    pass
-
 import os
 import sys
 import signal
@@ -235,13 +229,13 @@ def get_identifier(name=None, pid=None, bold=True):
         esc_no_char_attr = ""
 
     if name is None:
-        return "{}PID {}{}".format(esc_bold, pid, esc_no_char_attr)
+        return "{}PID_{}{}".format(esc_bold, pid, esc_no_char_attr)
     else:
-        return "{}{} ({}){}".format(esc_bold, name, pid, esc_no_char_attr)
+        return "{}{}_{}{}".format(esc_bold, name, pid, esc_no_char_attr)
 
 
-def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, log_queue, sigint, sigterm, name,
-                       logging_level, conn_send):
+def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, sigint, sigterm, name,
+                       logging_level, conn_send, func_running):
     """
         to be executed as a separate process (that's why this functions is declared static)
     """
@@ -249,17 +243,16 @@ def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, l
     global log
     log = logging.getLogger(__name__ + '.' + "log_{}".format(get_identifier(name, bold=False)))
     log.setLevel(logging_level)
-
-    # try:
-    #     log.addHandler(QueueHandler(log_queue))
-    # except NameError:
-    #     log.addHandler(def_handl)
-
+  
     sys.stdout = StdoutPipe(conn_send)
 
     log.debug("enter wrapper_func")
 
     SIG_handler_Loop(sigint, sigterm, log, prefix)
+    func_running.value = True
+    
+    error = False
+    
 
     while shared_mem_run.value:
         try:
@@ -275,37 +268,33 @@ def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, l
                 except Exception as e:
                     log.error("error %s occurred in loop alling 'func(*args)'", type(e))
                     log.info("show traceback.print_exc()\n%s", traceback.format_exc())
-                    sys.exit(-1)
-
+                    error = True
+                    break
+ 
                 if quit_loop is True:
                     log.debug("loop stooped because func returned True")
                     break
-
+ 
             time.sleep(interval)
         except LoopInterruptError:
             log.debug("quit wrapper_func due to InterruptedError")
             break
 
-    log.debug("wrapper_func terminates gracefully")
+    func_running.value = False
+    if error:
+        sys.exit(-1)
+    else:
+        log.debug("wrapper_func terminates gracefully")
+    
+    # gets rid of the following warnings
+    #   Exception ignored in: <_io.FileIO name='/dev/null' mode='rb'>
+    #   ResourceWarning: unclosed file <_io.TextIOWrapper name='/dev/null' mode='r' encoding='UTF-8'>
+    if mp.get_start_method() == "spawn":
+        sys.stdin.close()
 
 
-def show_stat_base(count_value, max_count_value, prepend, speed, tet, ttg, width, **kwargs):
-    """A function that formats the progress information
-
-    This function will be called periodically for each progress that is monitored.
-    Overwrite this function in a subclass to implement a specific formating of the progress information
-
-    :param count_value:      a number holding the current state
-    :param max_count_value:  should be the largest number `count_value` can reach
-    :param prepend:          additional text for each progress
-    :param speed:            the speed estimation
-    :param tet:              the total elapsed time
-    :param ttg:              the time to go
-    :param width:            the width for the progressbar, when set to `"auto"` this function
-        should try to detect the width available
-    :type width:             int or "auto"
-    """
-    raise NotImplementedError
+class LoopTimeoutError(TimeoutError):
+    pass
 
 class Loop(object):
     """
@@ -377,6 +366,7 @@ class Loop(object):
         assert self.interval >= 0
         self._run   = mp.Value('b', False)
         self._pause = mp.Value('b', False)
+        self._func_running = mp.Value('b', False)
         
         self._sigint = sigint
         self._sigterm = sigterm
@@ -415,7 +405,7 @@ class Loop(object):
         user to confirm sending SIGKILL
         """
         # set run to False and wait some time -> see what happens            
-        self.run = False
+        self._run.value = False
         if check_process_termination(proc                     = self._proc,
                                      timeout                  = 2*self.interval,
                                      prefix                   = '',
@@ -428,7 +418,9 @@ class Loop(object):
         except OSError:
             pass
         log.debug("wait for monitor thread to join")
-        self._monitor_thread.join()      
+        self._monitor_thread.join()
+        log.debug("monitor thread to joined")
+        self._func_running.value = False
 
         
     def _monitor_stdout_pipe(self):
@@ -439,7 +431,7 @@ class Loop(object):
             except EOFError:
                 break
 
-    def start(self):
+    def start(self, timeout=None):
         """
         uses multiprocess Process to call _wrapper_func in subprocess 
         """
@@ -448,17 +440,8 @@ class Loop(object):
             log.warning("a process with pid %s is already running", self._proc.pid)
             return
             
-        self.run = True
-
-        # try:
-        #     log_queue = mp.Queue(-1)
-        #     listener = QueueListener(log_queue, def_handl)
-        #     listener.start()
-        # except NameError:
-        #     log.error("QueueListener not available in this python version (need at least 3.2)\n"
-        #               "this may resault in incoheerent logging")
-        #     log_queue = None
-        log_queue = None
+        self._run.value = True
+        self._func_running.value = False
         name = self.__class__.__name__
         
         self.conn_recv, self.conn_send = mp.Pipe(False)
@@ -468,16 +451,35 @@ class Loop(object):
         log.debug("started monitor thread")
 
         args = (self.func, self.args, self._run, self._pause, self.interval,
-                log_queue, self._sigint, self._sigterm, name, log.level, self.conn_send)
-
-        # import pickle
-        # pickle.dumps(_loop_wrapper_func)
-        # pickle.dumps(args)
+                self._sigint, self._sigterm, name, log.level, self.conn_send, 
+                self._func_running)
         
         self._proc = mp.Process(target = _loop_wrapper_func,
                                 args   = args)
         self._proc.start()
-        log.debug("started a new process with pid %s", self._proc.pid)
+        log.info("started a new process with pid %s", self._proc.pid)
+        log.debug("wait for loop function to come up")
+        t0 = time.time()
+        while not self._func_running.value:
+            if self._proc.exitcode is not None:
+                exc = self._proc.exitcode
+                self._proc = None
+                if exc == 0:
+                    log.warning("wrapper function already terminated with exitcode 0\nloop is not running")
+                    return
+                else:
+                    raise LoopExceptionError("the loop function return non zero exticode ({})!\n".format(exc)+
+                                             "see log (INFO level) for traceback information")
+            
+            time.sleep(0.1)           
+            if (timeout is not None) and ((time.time() - t0) > timeout):
+                err_msg = "could not bring up function on time (timeout: {}s)".format(timeout)
+                log.error(err_msg)
+                log.info("either it takes too long to spawn the subprocess (increase the timeout)\n"+
+                         "or an internal error occurred before reaching the function call")
+                raise LoopTimeoutError(err_msg)
+            
+        log.debug("loop function is up ({})".format(humanize_time(time.time()-t0)))
         
     def stop(self):
         """
@@ -486,7 +488,7 @@ class Loop(object):
         Setting the shared memory boolean run to false, which should prevent
         the loop from repeating. Call __cleanup to make sure the process
         stopped. After that we could trigger start() again.
-        """
+        """        
         if self.is_alive():
             self._proc.terminate()
             
@@ -495,7 +497,7 @@ class Loop(object):
                    
             if self.raise_error:
                 if self._proc.exitcode == 255:
-                    raise LoopExceptionError("the loop function return non zero exticode!\n"+
+                    raise LoopExceptionError("the loop function return non zero exticode ({})!\n".format(self._proc.exitcode)+
                                              "see log (INFO level) for traceback information") 
         
         self._proc = None
@@ -513,13 +515,19 @@ class Loop(object):
         else:
             return self._proc.is_alive()
         
+    def is_running(self):
+        if self.is_alive():
+            return self._func_running.value
+        else:
+            return False   
+        
     def pause(self):
-        if self.run:
+        if self._run.value:
             self._pause.value = True
             log.debug("process with pid %s paused", self._proc.pid)
         
     def resume(self):
-        if self.run:
+        if self._run.value:
             self._pause.value = False
             log.debug("process with pid %s resumed", self._proc.pid)
 
@@ -528,20 +536,24 @@ class Loop(object):
             return self._proc.pid
         else:
             return None
-    
-    @property
-    def run(self):
-        """
-        makes the shared memory boolean accessible as class attribute
-        
-        Set run False, the loop will stop repeating.
-        Calling start, will set run True and start the loop again as a new process.
-        """
-        return self._run.value
-    @run.setter
-    def run(self, run):
-        self._run.value = run
 
+def show_stat_base(count_value, max_count_value, prepend, speed, tet, ttg, width, **kwargs):
+    """A function that formats the progress information
+
+    This function will be called periodically for each progress that is monitored.
+    Overwrite this function in a subclass to implement a specific formating of the progress information
+
+    :param count_value:      a number holding the current state
+    :param max_count_value:  should be the largest number `count_value` can reach
+    :param prepend:          additional text for each progress
+    :param speed:            the speed estimation
+    :param tet:              the total elapsed time
+    :param ttg:              the time to go
+    :param width:            the width for the progressbar, when set to `"auto"` this function
+        should try to detect the width available
+    :type width:             int or "auto"
+    """
+    raise NotImplementedError
        
 def _show_stat_wrapper_Progress(count, last_count, start_time, max_count, speed_calc_cycles, 
                                 width, q, last_speed, prepend, show_stat_function, add_args,
@@ -1256,6 +1268,7 @@ class SIG_handler_Loop(object):
             raise TypeError("unknown signal hander string '%s'", handler_str)
     
     def _ignore_signal(self, signal, frame):
+        self.log.debug("ignore received sig %s", signal_dict[signal])
         pass
 
     def _stop_on_signal(self, signal, frame):
@@ -1277,22 +1290,20 @@ def StringValue(num_of_bytes):
 def check_process_termination(proc, prefix, timeout, auto_kill_on_last_resort = False):
     proc.join(timeout)
     if not proc.is_alive():
-        log.debug("termination of process (pid %s) within timeout of %ss SUCCEEDED!", proc.pid, timeout)
+        log.debug("termination of process (pid %s) within timeout of %s SUCCEEDED!", proc.pid, humanize_time(timeout))
         return True
         
     # process still runs -> send SIGTERM -> see what happens
-    log.warning("termination of process (pid %s) within given timeout of %ss FAILED!", proc.pid, timeout)
+    log.warning("termination of process (pid %s) within given timeout of %s FAILED!", proc.pid, humanize_time(timeout))
  
     proc.terminate()
     new_timeout = 3*timeout
-    log.debug("wait for termination (timeout %s)", new_timeout)
+    log.debug("wait for termination (timeout %s)", humanize_time(new_timeout))
     proc.join(new_timeout)
     if not proc.is_alive():
-        log.info("termination of process (pid %s) via SIGTERM with timeout of %ss SUCCEEDED!", proc.pid, new_timeout)
+        log.info("termination of process (pid %s) via SIGTERM with timeout of %s SUCCEEDED!", proc.pid, humanize_time(new_timeout))
         return True
-        
-    
-    log.warning("termination of process (pid %s) via SIGTERM with timeout of %ss FAILED!", proc.pid, new_timeout)
+    log.warning("termination of process (pid %s) via SIGTERM with timeout of %s FAILED!", proc.pid, humanize_time(new_timeout))
 
     log.debug("auto_kill_on_last_resort is %s", auto_kill_on_last_resort)
     answer = 'k' if auto_kill_on_last_resort else '_'
