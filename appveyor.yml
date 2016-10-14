@@ -61,6 +61,10 @@ install:
 
   # Check that we have the expected version and architecture for Python
   - "python --version"
+ 
+  # CONDA installs
+  # Pinned versions are defined in freeze_appveyor\pinned
+  - xcopy freeze_appveyor\pinned %PYTHON%\conda-meta\ /Y  
   - "conda install --yes pip" 
   - "pip install psutil"
   - "pip install pytest"
