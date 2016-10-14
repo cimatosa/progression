@@ -91,6 +91,12 @@ import logging
 import math
 import multiprocessing as mp
 from   multiprocessing.sharedctypes import Synchronized
+
+try:
+    mp.set_start_method('spawn')
+except RuntimeError:
+    pass
+
 import os
 import sys
 import signal
@@ -536,6 +542,54 @@ class Loop(object):
     def run(self, run):
         self._run.value = run
 
+       
+def _show_stat_wrapper_Progress(count, last_count, start_time, max_count, speed_calc_cycles, 
+                                width, q, last_speed, prepend, show_stat_function, add_args,
+                                i, lock):
+    """
+        calculate 
+    """
+    count_value, max_count_value, speed, tet, ttg, = Progress._calc(count, 
+                                                                    last_count, 
+                                                                    start_time, 
+                                                                    max_count, 
+                                                                    speed_calc_cycles, 
+                                                                    q,
+                                                                    last_speed, 
+                                                                    lock) 
+    return show_stat_function(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **add_args)
+
+def _show_stat_wrapper_multi_Progress(count, last_count, start_time, max_count, speed_calc_cycles, 
+                                      width, q, last_speed, prepend, show_stat_function, len_, 
+                                      add_args, lock, info_line, no_move_up=False):
+    """
+        call the static method show_stat_wrapper for each process
+    """
+#         print(ESC_BOLD, end='')
+#         sys.stdout.flush()
+    for i in range(len_):
+        _show_stat_wrapper_Progress(count[i], last_count[i], start_time[i], max_count[i], speed_calc_cycles, 
+                                    width, q[i], last_speed[i], prepend[i], show_stat_function,
+                                    add_args, i, lock[i])
+    n = len_
+    if info_line is not None:
+        s = info_line.value.decode('utf-8')
+        s = s.split('\n')
+        n += len(s)
+        for si in s:
+            if width == 'auto':
+                width = terminal.get_terminal_width()
+            if len(si) > width:
+                si = si[:width]
+            print("{0:<{1}}".format(si, width))
+    
+    if no_move_up:
+        n = 0
+                                # this is only a hack to find the end
+                                # of the message in a stream
+                                # so ESC_HIDDEN+ESC_NO_CHAR_ATTR is a magic ending
+    print(terminal.ESC_MOVE_LINE_UP(n) + terminal.ESC_MY_MAGIC_ENDING, end='')
+    sys.stdout.flush() 
 
 
 class Progress(Loop):
@@ -676,7 +730,7 @@ class Progress(Loop):
         
         # setup loop class with func
         Loop.__init__(self,
-                      func = Progress._show_stat_wrapper_multi,
+                      func = _show_stat_wrapper_multi_Progress,
 
                       args = (self.count,
                               self.last_count,
@@ -797,7 +851,7 @@ class Progress(Loop):
             convenient functions to call the static show_stat_wrapper_multi with
             the given class members
         """
-        Progress._show_stat_wrapper_multi(self.count,
+        _show_stat_wrapper_multi_Progress(self.count,
                                           self.last_count, 
                                           self.start_time, 
                                           self.max_count, 
@@ -813,87 +867,7 @@ class Progress(Loop):
                                           self.info_line,
                                           no_move_up=True)
         
-    @staticmethod        
-    def _show_stat_wrapper(count, 
-                          last_count, 
-                          start_time, 
-                          max_count, 
-                          speed_calc_cycles, 
-                          width, 
-                          q,
-                          last_speed,
-                          prepend, 
-                          show_stat_function,
-                          add_args, 
-                          i, 
-                          lock):
-        """
-            calculate 
-        """
-        count_value, max_count_value, speed, tet, ttg, = Progress._calc(count, 
-                                                                        last_count, 
-                                                                        start_time, 
-                                                                        max_count, 
-                                                                        speed_calc_cycles, 
-                                                                        q,
-                                                                        last_speed, 
-                                                                        lock) 
-        return show_stat_function(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **add_args)
-
-    @staticmethod
-    def _show_stat_wrapper_multi(count, 
-                                last_count, 
-                                start_time, 
-                                max_count, 
-                                speed_calc_cycles, 
-                                width, 
-                                q, 
-                                last_speed,
-                                prepend, 
-                                show_stat_function, 
-                                len_, 
-                                add_args,
-                                lock,
-                                info_line,
-                                no_move_up=False):
-        """
-            call the static method show_stat_wrapper for each process
-        """
-#         print(ESC_BOLD, end='')
-#         sys.stdout.flush()
-        for i in range(len_):
-            Progress._show_stat_wrapper(count[i], 
-                                       last_count[i], 
-                                       start_time[i], 
-                                       max_count[i], 
-                                       speed_calc_cycles, 
-                                       width, 
-                                       q[i],
-                                       last_speed[i],
-                                       prepend[i], 
-                                       show_stat_function, 
-                                       add_args, 
-                                       i, 
-                                       lock[i])
-        n = len_
-        if info_line is not None:
-            s = info_line.value.decode('utf-8')
-            s = s.split('\n')
-            n += len(s)
-            for si in s:
-                if width == 'auto':
-                    width = terminal.get_terminal_width()
-                if len(si) > width:
-                    si = si[:width]
-                print("{0:<{1}}".format(si, width))
-        
-        if no_move_up:
-            n = 0
-                                    # this is only a hack to find the end
-                                    # of the message in a stream
-                                    # so ESC_HIDDEN+ESC_NO_CHAR_ATTR is a magic ending
-        print(terminal.ESC_MOVE_LINE_UP(n) + terminal.ESC_MY_MAGIC_ENDING, end='')
-        sys.stdout.flush()        
+           
 
     def reset(self, i = None):
         """resets the progress informaion
