@@ -289,8 +289,11 @@ def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, s
     # gets rid of the following warnings
     #   Exception ignored in: <_io.FileIO name='/dev/null' mode='rb'>
     #   ResourceWarning: unclosed file <_io.TextIOWrapper name='/dev/null' mode='r' encoding='UTF-8'>
-    if mp.get_start_method() == "spawn":
-        sys.stdin.close()
+    try:
+        if mp.get_start_method() == "spawn":
+            sys.stdin.close()
+    except NameError:
+        pass
 
 
 class LoopTimeoutError(TimeoutError):
