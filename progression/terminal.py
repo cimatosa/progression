@@ -5,6 +5,12 @@ import os
 import sys
 import subprocess as sp
 import logging
+import platform
+
+if platform.system() == 'Windows':
+    width_correction = -1
+else:
+    width_correction = 0
 
 try:
     from shutil import get_terminal_size as shutil_get_terminal_size
@@ -78,7 +84,7 @@ def get_terminal_size(defaultw=80):
 
 def get_terminal_width(default=80, name=None):
     try:
-        width = get_terminal_size(defaultw=default)[0]
+        width = get_terminal_size(defaultw=default)[0] + width_correction
     except:
         width = default
     return width

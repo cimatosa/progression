@@ -314,7 +314,7 @@ def run_example_ProgressBarFancy_multi():
                              max_count = max_count,
                              interval  = 0.3,
                              prepend   = prepend,
-                             width     = 60) as sbm:
+                             width     = 'auto') as sbm:
         sbm.start()
         tocrunch(count, max_count)
 
@@ -322,7 +322,7 @@ def run_example_ProgressBarFancy_multi():
 if __name__ == "__main__":
     # import logging
     # pr.log.setLevel(logging.DEBUG)
-    # run_example_ProgressBar()
+    run_example_ProgressBar()
     # run_example_ProgressBarFancy()
     # run_example_ProgressBarDecorator()
     # run_example_max_count_is_none()

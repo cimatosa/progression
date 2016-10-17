@@ -100,6 +100,7 @@ import time
 import traceback
 import warnings
 from . import terminal
+import platform
 
 _IPYTHON = True
 try:
@@ -1408,13 +1409,19 @@ for s in dir(signal):
         else:
             signal_dict[n] = s
 
-_colthm_term_default = {'PRE_COL': terminal.ESC_RED, 'BAR_COL': terminal.ESC_LIGHT_GREEN}
-_colthm_ipyt_default = {'PRE_COL': terminal.ESC_RED, 'BAR_COL': terminal.ESC_LIGHT_BLUE}
+_colthm_term_default = {'PRE_COL': terminal.ESC_RED, 'BAR_COL': terminal.ESC_LIGHT_GREEN, 'ADD_LNS_UP':0}
+_colthm_ipyt_default = {'PRE_COL': terminal.ESC_RED, 'BAR_COL': terminal.ESC_LIGHT_BLUE, 'ADD_LNS_UP':0}
+_colthm_wincmd_default = {'PRE_COL': terminal.ESC_RED, 'BAR_COL': terminal.ESC_GREEN, 'ADD_LNS_UP':1}
 
 color_themes = {'term_default': _colthm_term_default,
-                'ipyt_default': _colthm_ipyt_default}
+                'ipyt_default': _colthm_ipyt_default,
+                'wincmd_default': _colthm_wincmd_default}
 
-COLTHM = _colthm_term_default
+if platform.system() == 'Windows':
+    COLTHM = _colthm_wincmd_default
+else:
+    COLTHM = _colthm_term_default
+
 def choose_color_theme(name):
     global COLTHM
     if name in color_themes:
