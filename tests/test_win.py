@@ -26,10 +26,12 @@ if __name__ == '__main__':
     time.sleep(1)
     
     if platform.system() == 'Windows':
+        print("send CTRL_C_EVENT")
         os.kill(p.pid, signal.CTRL_C_EVENT)
     elif platform.system() == 'Linux':
+        print("send SIGINT")
         os.kill(p.pid, signal.SIGINT)
-        
+
     time.sleep(3)
     try:
         os.kill(p.pid, signal.SIGTERM)
