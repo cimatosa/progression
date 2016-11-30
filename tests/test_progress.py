@@ -1139,63 +1139,71 @@ def test_show_stat():
     kwargs = {'counter_count': [progression.UnsignedIntValue(10)],
               'counter_speed': [progression.UnsignedIntValue(1)],
               'init_time': 0}
+    
+    pre = 'pre str: '
 
-    progression.show_stat_ProgressBar(count_value=0, max_count_value=10, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBar(count_value=0, max_count_value=10, prepend=pre, speed=1.1, tet=11, ttg=100,
                                       width=80, i=None)
-    progression.show_stat_ProgressBar(count_value=5, max_count_value=10, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBar(count_value=5, max_count_value=10, prepend=pre, speed=1.1, tet=11, ttg=100,
                                       width=80, i=None)
-    progression.show_stat_ProgressBar(count_value=10, max_count_value=10, prepend='pre', speed=1.1, tet=11, ttg=100,
-                                      width=80, i=None)
-
-    progression.show_stat_ProgressBar(count_value=0, max_count_value=0, prepend='pre', speed=1.1, tet=11, ttg=100,
-                                      width=80, i=None)
-    progression.show_stat_ProgressBar(count_value=5, max_count_value=0, prepend='pre', speed=1.1, tet=11, ttg=100,
-                                      width=80, i=None)
-    progression.show_stat_ProgressBar(count_value=10, max_count_value=0, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBar(count_value=10, max_count_value=10, prepend=pre, speed=1.1, tet=11, ttg=100,
                                       width=80, i=None)
 
+    progression.show_stat_ProgressBar(count_value=0, max_count_value=0, prepend=pre, speed=1.1, tet=11, ttg=100,
+                                      width=80, i=None)
+    progression.show_stat_ProgressBar(count_value=5, max_count_value=0, prepend=pre, speed=1.1, tet=11, ttg=100,
+                                      width=80, i=None)
+    progression.show_stat_ProgressBar(count_value=10, max_count_value=0, prepend=pre, speed=1.1, tet=11, ttg=100,
+                                      width=80, i=None)
 
-    progression.show_stat_ProgressBarCounter(count_value=0, max_count_value=10, prepend='pre', speed=1.1, tet=11, ttg=100,
+
+    progression.show_stat_ProgressBarCounter(count_value=0, max_count_value=10, prepend=pre, speed=1.1, tet=11, ttg=100,
                                       width=80, i=0, **kwargs)
-    progression.show_stat_ProgressBarCounter(count_value=5, max_count_value=10, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBarCounter(count_value=5, max_count_value=10, prepend=pre, speed=1.1, tet=11, ttg=100,
                                       width=80, i=0, **kwargs)
-    progression.show_stat_ProgressBarCounter(count_value=10, max_count_value=10, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBarCounter(count_value=10, max_count_value=10, prepend=pre, speed=1.1, tet=11, ttg=100,
                                       width=80, i=0, **kwargs)
 
-    progression.show_stat_ProgressBarCounter(count_value=0, max_count_value=0, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBarCounter(count_value=0, max_count_value=0, prepend=pre, speed=1.1, tet=11, ttg=100,
                                              width=80, i=0, **kwargs)
-    progression.show_stat_ProgressBarCounter(count_value=5, max_count_value=0, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBarCounter(count_value=5, max_count_value=0, prepend=pre, speed=1.1, tet=11, ttg=100,
                                              width=80, i=0, **kwargs)
-    progression.show_stat_ProgressBarCounter(count_value=10, max_count_value=0, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBarCounter(count_value=10, max_count_value=0, prepend=pre, speed=1.1, tet=11, ttg=100,
                                              width=80, i=0, **kwargs)
 
 
-    progression.show_stat_ProgressBarFancy(count_value=0, max_count_value=10, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBarFancy(count_value=0, max_count_value=10, prepend=pre, speed=1.1, tet=11, ttg=100,
                                            width=80, i=None)
-    progression.show_stat_ProgressBarFancy(count_value=5, max_count_value=10, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBarFancy(count_value=5, max_count_value=10, prepend=pre, speed=1.1, tet=11, ttg=100,
                                            width=80, i=None)
-    progression.show_stat_ProgressBarFancy(count_value=10, max_count_value=10, prepend='pre', speed=1.1, tet=11, ttg=100,
+    progression.show_stat_ProgressBarFancy(count_value=80-len(pre)-2-1, max_count_value=80-len(pre)-2, prepend=pre, speed=1.1, tet=11, ttg=100,
+                                           width=80, i=None)
+    progression.show_stat_ProgressBarFancy(count_value=1, max_count_value=80-len(pre)-2, prepend=pre, speed=1.1, tet=11, ttg=100,
+                                           width=80, i=None)
+    progression.show_stat_ProgressBarFancy(count_value=10, max_count_value=10, prepend=pre, speed=1.1, tet=11, ttg=100,
+                                           width=80, i=None)
+    
+
+
+    progression.show_stat_ProgressBarFancy(count_value=0, max_count_value=0, prepend=pre, speed=1.1, tet=11, ttg=100,
+                                           width=80, i=None)
+    progression.show_stat_ProgressBarFancy(count_value=5, max_count_value=0, prepend=pre, speed=1.1, tet=11, ttg=100,
+                                           width=80, i=None)
+    progression.show_stat_ProgressBarFancy(count_value=10, max_count_value=0, prepend=pre, speed=1.1, tet=11, ttg=100,
                                            width=80, i=None)
 
-    progression.show_stat_ProgressBarFancy(count_value=0, max_count_value=0, prepend='pre', speed=1.1, tet=11, ttg=100,
-                                           width=80, i=None)
-    progression.show_stat_ProgressBarFancy(count_value=5, max_count_value=0, prepend='pre', speed=1.1, tet=11, ttg=100,
-                                           width=80, i=None)
-    progression.show_stat_ProgressBarFancy(count_value=10, max_count_value=0, prepend='pre', speed=1.1, tet=11, ttg=100,
-                                           width=80, i=None)
-
-    progression.show_stat_ProgressBarCounterFancy(count_value=0, max_count_value=10, prepend='pre', speed=1.1, tet=11,
+    progression.show_stat_ProgressBarCounterFancy(count_value=0, max_count_value=10, prepend=pre, speed=1.1, tet=11,
                                                   ttg=100, width=80, i=0, **kwargs)
-    progression.show_stat_ProgressBarCounterFancy(count_value=5, max_count_value=10, prepend='pre', speed=1.1, tet=11,
+    progression.show_stat_ProgressBarCounterFancy(count_value=5, max_count_value=10, prepend=pre, speed=1.1, tet=11,
                                                   ttg=100, width=80, i=0, **kwargs)
-    progression.show_stat_ProgressBarCounterFancy(count_value=10, max_count_value=10, prepend='pre', speed=1.1, tet=11,
+    progression.show_stat_ProgressBarCounterFancy(count_value=10, max_count_value=10, prepend=pre, speed=1.1, tet=11,
                                                   ttg=100, width=80, i=0, **kwargs)
 
-    progression.show_stat_ProgressBarCounterFancy(count_value=0, max_count_value=0, prepend='pre', speed=1.1, tet=11,
+    progression.show_stat_ProgressBarCounterFancy(count_value=0, max_count_value=0, prepend=pre, speed=1.1, tet=11,
                                                   ttg=100, width=80, i=0, **kwargs)
-    progression.show_stat_ProgressBarCounterFancy(count_value=5, max_count_value=0, prepend='pre', speed=1.1, tet=11,
+    progression.show_stat_ProgressBarCounterFancy(count_value=5, max_count_value=0, prepend=pre, speed=1.1, tet=11,
                                                   ttg=100, width=80, i=0, **kwargs)
-    progression.show_stat_ProgressBarCounterFancy(count_value=10, max_count_value=0, prepend='pre', speed=1.1, tet=11,
+    progression.show_stat_ProgressBarCounterFancy(count_value=10, max_count_value=0, prepend=pre, speed=1.1, tet=11,
                                               ttg=100, width=80, i=0, **kwargs)
 
 def test_example_StdoutPipe():
@@ -1244,8 +1252,8 @@ if __name__ == "__main__":
 #     test_progress_bar_multi,
 #     test_status_counter,
 #     test_status_counter_multi,
-    test_intermediate_prints_while_running_progess_bar,
-    test_intermediate_prints_while_running_progess_bar_multi,
+#     test_intermediate_prints_while_running_progess_bar,
+#     test_intermediate_prints_while_running_progess_bar_multi,
 #     test_progress_bar_counter,
 #     test_progress_bar_counter_non_max,
 #     test_progress_bar_counter_hide_bar,
@@ -1264,7 +1272,7 @@ if __name__ == "__main__":
 #     test_stopping_loop,
 #     test_ESC_SEQ,
 #     test_example_StdoutPipe,
-#     test_show_stat,
+    test_show_stat,
 #     test_fork,
     lambda: print("END")
     ]

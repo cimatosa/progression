@@ -105,12 +105,15 @@ import platform
 _IPYTHON = True
 try:
     import ipywidgets
-except:
+except ImportError:
     _IPYTHON = False
     warnings.warn("could not load ipywidgets (IPython HTML output will not work)", category=ImportWarning)
+except DeprecationWarning:
+    pass
+    
 try:
     from IPython.display import display
-except:
+except ImportError:
     _IPYTHON = False
     warnings.warn("could not load  IPython (IPython HTML output will not work)", category=ImportWarning)
 
@@ -144,12 +147,12 @@ class MultiLineFormatter(logging.Formatter):
         _str = _str.replace('\n', '\n' + ' '*len(header))
         return _str
 
-def_handl = logging.StreamHandler(stream = sys.stderr)          # the default handler simply uses stderr
-def_handl.setLevel(logging.DEBUG)                               # ... listens to all messaged
-fmt = MultiLineFormatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
-def_handl.setFormatter(fmt)                                     # ... and pads multiline messaged
+# def_handl = logging.StreamHandler(stream = sys.stderr)          # the default handler simply uses stderr
+# def_handl.setLevel(logging.DEBUG)                               # ... listens to all messaged
+# fmt = MultiLineFormatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
+# def_handl.setFormatter(fmt)                                     # ... and pads multiline messaged
 log = logging.getLogger(__name__)                               # creates the default log for this module
-log.addHandler(def_handl)
+# log.addHandler(def_handl)
 
 
 class LoopExceptionError(RuntimeError):
@@ -188,6 +191,8 @@ class StdoutPipe(object):
 class PipeToPrint(object):
     def __call__(self, b):
         print(b, end='')
+    def close(self):
+        pass
 
 class PipeFromProgressToIPythonHTMLWidget(object):
     def __init__(self):
@@ -200,6 +205,9 @@ class PipeFromProgressToIPythonHTMLWidget(object):
             buff = terminal.ESC_SEQ_to_HTML(self._buff)
             self.htmlWidget.value = '<style>.widget-html{font-family:monospace}</style><pre>'+buff+'</pre>'
             self._buff = ""
+    def close(self):
+        self.htmlWidget.close()
+        
 
 PipeHandler = PipeToPrint
 def choose_pipe_handler(kind = 'print', color_theme = None):
@@ -219,6 +227,8 @@ def choose_pipe_handler(kind = 'print', color_theme = None):
                 choose_color_theme(color_theme)
         else:
             warnings.warn("can not choose ipythonHTML (IPython and/or ipywidgets were not loaded)")
+    else:
+        raise ValueError("unknown kind '{}' for pipe_handler, use one out of ('print', 'ipythonhtml')")
 
 def get_identifier(name=None, pid=None, bold=True):
     if pid is None:
@@ -506,6 +516,7 @@ class Loop(object):
                     raise LoopExceptionError("the loop function return non zero exticode ({})!\n".format(self._proc.exitcode)+
                                              "see log (INFO level) for traceback information") 
         
+        self.pipe_handler.close()
         self._proc = None
         
     def join(self, timeout):
@@ -1179,10 +1190,11 @@ def _stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kw
         if res is not None:
             s1, s2, d1, d2 = res
             s = s1 + ' ' * d1 + ps + ' ' * d2 + s2
-            s_before = s[:math.ceil(width * p)].replace(' ', repl_ch)
+            idx_p = math.ceil( (width-lp-2)*p)
+            s_before = s[:idx_p].replace(' ', repl_ch)
             if (len(s_before) > 0) and (s_before[-1] == repl_ch):
                 s_before = s_before[:-1] + '>'
-            s_after = s[math.ceil(width * p):]
+            s_after = s[idx_p:]
 
             s_before = kw_bold(s_before, ch_after=[repl_ch, '>'])
             s_after = kw_bold(s_after, ch_after=[' '])
