@@ -85,8 +85,10 @@ def get_terminal_size(defaultw=80):
 def get_terminal_width(default=80, name=None):
     try:
         width = get_terminal_size(defaultw=default)[0] + width_correction
+#        print("got width from get_terminal_size", width)
     except:
         width = default
+#        print("use default width", width)
     return width
 
 

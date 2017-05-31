@@ -230,6 +230,16 @@ def choose_pipe_handler(kind = 'print', color_theme = None):
     else:
         raise ValueError("unknown kind '{}' for pipe_handler, use one out of ('print', 'ipythonhtml')")
 
+def get_terminal_width():
+    if PipeHandler == PipeToPrint:
+        return terminal.get_terminal_width()
+    elif PipeHandler == PipeFromProgressToIPythonHTMLWidget:
+        return 80
+    else:
+        raise NotImplementedError
+
+
+
 def get_identifier(name=None, pid=None, bold=True):
     if pid is None:
         pid = os.getpid()
@@ -607,7 +617,7 @@ def _show_stat_wrapper_multi_Progress(count, last_count, start_time, max_count, 
         n += len(s)
         for si in s:
             if width == 'auto':
-                width = terminal.get_terminal_width()
+                width = get_terminal_width()
             if len(si) > width:
                 si = si[:width]
             print("{0:<{1}}".format(si, width))
@@ -962,7 +972,7 @@ def show_stat_ProgressBar(count_value, max_count_value, prepend, speed, tet, ttg
                                              count_value))
     else:
         if width == 'auto':
-            width = terminal.get_terminal_width()
+            width = get_terminal_width()
 
         # deduce relative progress and show as bar on screen
         if ttg is None:
@@ -1011,7 +1021,7 @@ def show_stat_ProgressBarCounter(count_value, max_count_value, prepend, speed, t
                                         str(counter_count.value) + terminal.ESC_DEFAULT)
 
     if width == 'auto':
-        width = terminal.get_terminal_width()
+        width = get_terminal_width()
 
     if (max_count_value is None) or (max_count_value == 0):
         s_c = "{}{} [{}] {}#{}    ".format(s_c,
@@ -1151,7 +1161,7 @@ def _stat(count_value, max_count_value, prepend, speed, tet, ttg, width, i, **kw
                                             str(count_value) + terminal.ESC_DEFAULT)
     else:
         if width == 'auto':
-            width = terminal.get_terminal_width()
+            width = get_terminal_width()
         # deduce relative progress
         p = count_value / max_count_value
         if p < 1:
@@ -1241,7 +1251,7 @@ def show_stat_ProgressBarCounterFancy(count_value, max_count_value, prepend, spe
 
     if max_count_value is not None:
         if width == 'auto':
-            width = terminal.get_terminal_width()
+            width = get_terminal_width()
         s_c += ' - '
         if max_count_value == 0:
             s_c = "{}{} [{}] {}#{}    ".format(s_c, humanize_time(tet), humanize_speed(speed),
