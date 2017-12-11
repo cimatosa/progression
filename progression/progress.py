@@ -88,6 +88,7 @@ from __future__ import division, print_function
 import datetime
 import io
 import logging
+from logging.handlers import QueueHandler, QueueListener
 import math
 import multiprocessing as mp
 from   multiprocessing.sharedctypes import Synchronized
@@ -149,7 +150,7 @@ class MultiLineFormatter(logging.Formatter):
 
 # def_handl = logging.StreamHandler(stream = sys.stderr)          # the default handler simply uses stderr
 # def_handl.setLevel(logging.DEBUG)                               # ... listens to all messaged
-# fmt = MultiLineFormatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
+fmt = MultiLineFormatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
 # def_handl.setFormatter(fmt)                                     # ... and pads multiline messaged
 log = logging.getLogger(__name__)                               # creates the default log for this module
 # log.addHandler(def_handl)
@@ -185,6 +186,7 @@ class StdoutPipe(object):
         
     def flush(self):
         pass
+
     def write(self, b):
         self.conn.send(b)
 
@@ -210,6 +212,7 @@ class PipeFromProgressToIPythonHTMLWidget(object):
         
 
 PipeHandler = PipeToPrint
+
 def choose_pipe_handler(kind = 'print', color_theme = None):
     global PipeHandler
     if kind == 'print':
@@ -258,14 +261,16 @@ def get_identifier(name=None, pid=None, bold=True):
 
 
 def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, sigint, sigterm, name,
-                       logging_level, conn_send, func_running):
+                       logging_level, conn_send, func_running, log_queue):
     """
         to be executed as a separate process (that's why this functions is declared static)
     """
     prefix = get_identifier(name) + ' '
+
     global log
-    log = logging.getLogger(__name__ + '.' + "log_{}".format(get_identifier(name, bold=False)))
+    log = logging.getLogger(__name__+".log_{}".format(get_identifier(name, bold=False)))
     log.setLevel(logging_level)
+    log.addHandler(QueueHandler(log_queue))
   
     sys.stdout = StdoutPipe(conn_send)
 
@@ -275,7 +280,6 @@ def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, s
     func_running.value = True
     
     error = False
-    
 
     while shared_mem_run.value:
         try:
@@ -289,7 +293,7 @@ def _loop_wrapper_func(func, args, shared_mem_run, shared_mem_pause, interval, s
                 except LoopInterruptError:
                     raise
                 except Exception as e:
-                    log.error("error %s occurred in loop alling 'func(*args)'", type(e))
+                    log.error("error %s occurred in loop calling 'func(*args)'", type(e))
                     log.info("show traceback.print_exc()\n%s", traceback.format_exc())
                     error = True
                     break
@@ -441,6 +445,7 @@ class Loop(object):
             raise RuntimeError("cleanup FAILED!")
         try:
             self.conn_send.close()
+            self._log_queue_listener.stop()
         except OSError:
             pass
         log.debug("wait for monitor thread to join")
@@ -475,10 +480,13 @@ class Loop(object):
         self._monitor_thread.daemon=True
         self._monitor_thread.start()
         log.debug("started monitor thread")
+        self._log_queue = mp.Queue()
+        self._log_queue_listener = QueueListener(self._log_queue, *log.handlers)
+        self._log_queue_listener.start()
 
         args = (self.func, self.args, self._run, self._pause, self.interval,
                 self._sigint, self._sigterm, name, log.level, self.conn_send, 
-                self._func_running)
+                self._func_running, self._log_queue)
         
         self._proc = mp.Process(target = _loop_wrapper_func,
                                 args   = args)
@@ -524,8 +532,7 @@ class Loop(object):
             if self.raise_error:
                 if self._proc.exitcode == 255:
                     raise LoopExceptionError("the loop function return non zero exticode ({})!\n".format(self._proc.exitcode)+
-                                             "see log (INFO level) for traceback information") 
-        
+                                             "see log (INFO level) for traceback information")
         self.pipe_handler.close()
         self._proc = None
         
@@ -741,6 +748,7 @@ class Progress(Loop):
         for i in range(self.len):
             self.q.append(myQueue())  # queue to save the last speed_calc_cycles
                                       # (time, count) information to calculate speed
+            #self.q[-1].cancel_join_thread()
             self.last_count.append(UnsignedIntValue())
             self.last_speed.append(FloatValue())
             self.lock.append(mp.Lock())

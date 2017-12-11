@@ -50,20 +50,23 @@ def _safe_assert_not_loop_is_alive(loop):
 
 INTERVAL = 0.2
 LOOP_START_TIMEOUT = 1
+
+def_handl = logging.StreamHandler(stream = sys.stderr)          # the default handler simply uses stderr
+def_handl.setLevel(logging.DEBUG)                               # ... listens to all messaged
     
 def test_prefix_logger():
     pl = logging.getLogger('new log')
     pl.setLevel(logging.DEBUG)
-    pl.addHandler(progression.def_handl)
+    pl.addHandler(def_handl)
 
     time.sleep(0.1)
     
-    pl.debug("{}this is an debug log{}".format(progression.terminal.ESC_BOLD,
+    pl.debug("{}this is a debug log{}".format(progression.terminal.ESC_BOLD,
                                                progression.terminal.ESC_NO_CHAR_ATTR))
     pl.info("this is an info %s log %s", 'a', 'b')
-    pl.warning("this is an warning log")
+    pl.warning("this is a warning log")
     pl.error("this is an error log")
-    pl.critical("this is an critical log")
+    pl.critical("this is a critical log")
     
     pl.debug("multiline\nline2\nline3")
     
@@ -350,11 +353,14 @@ def test_loop_pause():
            
 def test_loop_logging():
     my_err = inMemoryBuffer()
-    progression.def_handl.stream = my_err       
+    stream_hdl = logging.StreamHandler(my_err)
+    stream_hdl.setFormatter(progression.fmt)
+    progression.log.addHandler(stream_hdl)
+
     ll = progression.log.level
-                
+    progression.log.level = logging.INFO
+
     try:
-        progression.log.setLevel(logging.INFO)
         with progression.Loop(func          = normal_function,
                               interval      = INTERVAL) as loop:
             loop.start()
@@ -371,9 +377,12 @@ def test_loop_logging():
         progression.log.setLevel(ll)
             
     s = my_err.getvalue()
-    assert s.endswith("progression.progress INFO : started a new process with pid {}\n".format(pid))
+    print(s)
+    assert "progression.progress INFO : started a new process with pid {}".format(pid) in s
+    assert "progression.progress.log_Loop_{} INFO : received sig SIGTERM -> raise InterruptedError".format(pid) in s
     
-    progression.def_handl.stream = sys.stderr
+    progression.log.removeHandler(stream_hdl)
+    progression.log.level = ll
 
 
 def loop_without_WITH(shared_mem_pid):
@@ -1231,49 +1240,49 @@ def test_fork():
 if __name__ == "__main__":
 #    progression.log.setLevel(logging.DEBUG)
     func = [    
-#     test_humanize_time,
-#     test_codecov_subprocess_test,
-#     test_wrapper_termination,
-#     test_catch_subprocess_error,
-#     test_prefix_logger,
-#     test_loop_basic,
-#     test_loop_start_stop,
-#     test_loop_start_timeout,
-#     test_loop_signals,
-#     test_loop_normal_stop,
-#     test_loop_need_sigterm_to_stop,
-#     test_loop_need_sigkill_to_stop,
-#     test_loop_stdout_pipe,
-#     test_loop_pause,
-#     test_loop_logging,
-#     test_loop_why_with_statement,
-#     test_loop_with_error_in_func,
-#     test_progress_bar_with_statement,
-#     test_progress_bar_multi,
-#     test_status_counter,
-#     test_status_counter_multi,
-#     test_intermediate_prints_while_running_progess_bar,
-#     test_intermediate_prints_while_running_progess_bar_multi,
-#     test_progress_bar_counter,
-#     test_progress_bar_counter_non_max,
-#     test_progress_bar_counter_hide_bar,
-#     test_progress_bar_slow_change,
-#     test_progress_bar_start_stop,
-#     test_progress_bar_fancy,
-#     test_progress_bar_multi_fancy,
-#     test_progress_bar_fancy_small,
-#     test_progress_bar_counter_fancy,
-#     test_progress_bar_counter_fancy_non_max,
-#     test_progress_bar_counter_fancy_hide_bar,
-#     test_info_line,
-#     test_change_prepend,
-#     test_stop_progress_with_large_interval,
-#     test_get_identifier,
-#     test_stopping_loop,
-#     test_ESC_SEQ,
-#     test_example_StdoutPipe,
-    test_show_stat,
-#     test_fork,
+    # test_humanize_time,
+    # test_codecov_subprocess_test,
+    # test_wrapper_termination,
+    # test_catch_subprocess_error,
+    # test_prefix_logger,
+    # test_loop_basic,
+    # test_loop_start_stop,
+    # test_loop_start_timeout,
+    # test_loop_signals,
+    # test_loop_normal_stop,
+    # test_loop_need_sigterm_to_stop,
+    # test_loop_need_sigkill_to_stop,
+    # test_loop_stdout_pipe,
+    # test_loop_pause,
+    # test_loop_logging,
+    # test_loop_why_with_statement,
+    # test_loop_with_error_in_func,
+    # test_progress_bar_with_statement,
+    # test_progress_bar_multi,
+    test_status_counter,
+    test_status_counter_multi,
+    test_intermediate_prints_while_running_progess_bar,
+    # test_intermediate_prints_while_running_progess_bar_multi,
+    # test_progress_bar_counter,
+    # test_progress_bar_counter_non_max,
+    # test_progress_bar_counter_hide_bar,
+    # test_progress_bar_slow_change,
+    # test_progress_bar_start_stop,
+    # test_progress_bar_fancy,
+    # test_progress_bar_multi_fancy,
+    # test_progress_bar_fancy_small,
+    # test_progress_bar_counter_fancy,
+    # test_progress_bar_counter_fancy_non_max,
+    # test_progress_bar_counter_fancy_hide_bar,
+    # test_info_line,
+    # test_change_prepend,
+    # test_stop_progress_with_large_interval,
+    # test_get_identifier,
+    # test_stopping_loop,
+    # test_ESC_SEQ,
+    # test_example_StdoutPipe,
+    # test_show_stat,
+    # test_fork,
     lambda: print("END")
     ]
     
