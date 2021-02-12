@@ -231,7 +231,8 @@ def choose_pipe_handler(kind = 'print', color_theme = None):
         else:
             warnings.warn("can not choose ipythonHTML (IPython and/or ipywidgets were not loaded)")
     else:
-        raise ValueError("unknown kind '{}' for pipe_handler, use one out of ('print', 'ipythonhtml')")
+        raise ValueError("unknown kind for pipe handler '{}'. Choices are 'print' and 'ipythonhtml'".format(kind))
+
 
 def get_terminal_width():
     if PipeHandler == PipeToPrint:
@@ -240,7 +241,6 @@ def get_terminal_width():
         return 80
     else:
         raise NotImplementedError
-
 
 
 def get_identifier(name=None, pid=None, bold=True):
@@ -607,7 +607,7 @@ def _show_stat_wrapper_Progress(count, last_count, start_time, max_count, speed_
 
 def _show_stat_wrapper_multi_Progress(count, last_count, start_time, max_count, speed_calc_cycles, 
                                       width, q, last_speed, prepend, show_stat_function, len_, 
-                                      add_args, lock, info_line, no_move_up=False):
+                                      add_args, lock, info_line, no_move_up=False, emtpy_lines_at_end = 0):
     """
         call the static method show_stat_wrapper for each process
     """
@@ -631,11 +631,14 @@ def _show_stat_wrapper_multi_Progress(count, last_count, start_time, max_count, 
     
     if no_move_up:
         n = 0
+        
+    print('\r\n' * emtpy_lines_at_end, end='', flush=True)
                                 # this is only a hack to find the end
                                 # of the message in a stream
                                 # so ESC_HIDDEN+ESC_NO_CHAR_ATTR is a magic ending
-    print(terminal.ESC_MOVE_LINE_UP(n) + terminal.ESC_MY_MAGIC_ENDING, end='')
-    sys.stdout.flush() 
+    print(terminal.ESC_MOVE_LINE_UP(n + emtpy_lines_at_end) + terminal.ESC_MY_MAGIC_ENDING, end='')
+    sys.stdout.flush()
+    #print('## HERE ##', emtpy_lines_at_end, end='', flush=True)
 
 
 class Progress(Loop):
@@ -661,7 +664,8 @@ class Progress(Loop):
                  sigint            = 'stop', 
                  sigterm           = 'stop',
                  info_line         = None,
-                 show_stat         = None):
+                 show_stat         = None,
+                 emtpy_lines_at_end   = 0):
         """
         :param count:              shared variable for holding the current state 
             (use :py:func:`UnsignedIntValue` for short hand creation)
@@ -774,6 +778,7 @@ class Progress(Loop):
         
         self.info_line = info_line
         self.show_stat = show_stat
+        self.emtpy_lines_at_end = emtpy_lines_at_end
         
         # setup loop class with func
         Loop.__init__(self,
@@ -792,7 +797,9 @@ class Progress(Loop):
                               self.len,
                               self.add_args,
                               self.lock,
-                              self.info_line),
+                              self.info_line,
+                              False,                    # no_move_up
+                              self.emtpy_lines_at_end),
                       interval = interval,
                       sigint   = sigint,
                       sigterm  = sigterm,
