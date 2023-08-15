@@ -7,11 +7,13 @@ import threading
 import _thread
 import sys
 
+
 def interrupt_handler(interrupt_event):
     print("before wait")
     interrupt_event.wait()
     print("after wait")
     _thread.interrupt_main()
+
 
 def a_task(interrupt_event, *args):
     task = threading.Thread(target=interrupt_handler, args=(interrupt_event,))
@@ -27,9 +29,9 @@ def a_task(interrupt_event, *args):
     print("'a_task' is at end")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     interrupt_event = mp.Event()
-    p = mp.Process(target=a_task, args = (interrupt_event, tuple()))
+    p = mp.Process(target=a_task, args=(interrupt_event, tuple()))
     p.start()
     time.sleep(2)
     print("set interrupt_event")
@@ -40,6 +42,3 @@ if __name__ == '__main__':
         os.kill(p.pid, signal.SIGTERM)
     except:
         pass
-
-
-

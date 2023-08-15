@@ -195,91 +195,103 @@
 from __future__ import division, print_function
 
 import sys
+
 # setup path to import progression
 from os.path import abspath, dirname, split
+
 # Add parent directory to beginning of path variable
 sys.path = [split(dirname(abspath(__file__)))[0]] + sys.path
 
+
 def factorial(N, c):
     f = 1
-    for i in range(2, N+1):   # becasue the multiplication of two
-        f *= i                # integers is faster than
-        if i % 1000 == 0:     # settings the value of an sharedctype
-            c.value = i       # c gets updated only every 1000 steps
+    for i in range(2, N + 1):  # becasue the multiplication of two
+        f *= i  # integers is faster than
+        if i % 1000 == 0:  # settings the value of an sharedctype
+            c.value = i  # c gets updated only every 1000 steps
     return f
+
 
 def run_example_ProgressBar():
     import progression as pr
+
     N = 200000
-    c = pr.UnsignedIntValue()            # counter for factorial
-    with pr.ProgressBar(count     = c,   # (shared uint)
-                        max_count = N,
-                        interval  = 0.3  # the refresh time in secs.
-                                         # the default is 1s
-                        ) as pb:
-        pb.start()                       # start progress process
-        factorial(N, c)                  # doing stuff and
-                                         # change the value of 'c'
+    c = pr.UnsignedIntValue()  # counter for factorial
+    with pr.ProgressBar(
+        count=c,  # (shared uint)
+        max_count=N,
+        interval=0.3  # the refresh time in secs.
+        # the default is 1s
+    ) as pb:
+        pb.start()  # start progress process
+        factorial(N, c)  # doing stuff and
+        # change the value of 'c'
+
 
 def run_example_ProgressBarFancy():
     import progression as pr
+
     N = 200000
-    c = pr.UnsignedIntValue()        # counter (shared uint)
-    m = pr.UnsignedIntValue()        # the maximum value for
-                                     # counter, now also shared
-    with pr.ProgressBarFancy(count = c, max_count = m) as pb:
+    c = pr.UnsignedIntValue()  # counter (shared uint)
+    m = pr.UnsignedIntValue()  # the maximum value for
+    # counter, now also shared
+    with pr.ProgressBarFancy(count=c, max_count=m) as pb:
         pb.start()
-        m.value = N                  # set the max_count at runtime
+        m.value = N  # set the max_count at runtime
         factorial(N, c)
 
 
 import progression as pr
 
+
 @pr.decorators.ProgressBar
-def factorial_dec(N,
-                  c = pr.UnsignedIntValue(),
-                  m = pr.UnsignedIntValue()):
+def factorial_dec(N, c=pr.UnsignedIntValue(), m=pr.UnsignedIntValue()):
     # for the decorator to work the function needs to have
     # 'c' and 'm' as arguments
     # when using default values for 'c' and 'm' the
     # function call remains the same
     m.value = N
     f = 1
-    for i in range(2,N+1):
+    for i in range(2, N + 1):
         f *= i
         if i % 1000 == 0:
             c.value = i
     return f
 
+
 def run_example_ProgressBarDecorator():
-    factorial_dec(N = 200000)
+    factorial_dec(N=200000)
+
 
 def run_example_max_count_is_none():
     import progression as pr
-    c = pr.UnsignedIntValue()             # counter (shared uint)
-    with pr.ProgressBar(count     = c,
-                        max_count = None  # no maximum value of count
-                                          # known
-                        ) as pb:
+
+    c = pr.UnsignedIntValue()  # counter (shared uint)
+    with pr.ProgressBar(
+        count=c,
+        max_count=None  # no maximum value of count
+        # known
+    ) as pb:
         pb.start()
         factorial(100000, c)
+
 
 def run_example_ProgressBarCounter():
     import progression as pr
     import time
 
-    c = pr.UnsignedIntValue()       # ... the usual set up
-    with pr.ProgressBarCounter(count     = c,
-                               max_count = 10) as pb:
+    c = pr.UnsignedIntValue()  # ... the usual set up
+    with pr.ProgressBarCounter(count=c, max_count=10) as pb:
         pb.start()
-        for outer_loop in [1,3,5]:        # lets crunsh the
-                                          # innerloop 3 times
+        for outer_loop in [1, 3, 5]:  # lets crunsh the
+            # innerloop 3 times
 
-            for iner_loop in range(1,11): # change the counter
-                c.value = iner_loop       # according to the state
-                time.sleep(0.3)           # of the inner loop
+            for iner_loop in range(1, 11):  # change the counter
+                c.value = iner_loop  # according to the state
+                time.sleep(0.3)  # of the inner loop
 
-            pb.reset()                    # reset the ProgressBar
+            pb.reset()  # reset the ProgressBar
+
 
 def run_example_ProgressBarFancy_multi():
     import progression as pr
@@ -289,32 +301,29 @@ def run_example_ProgressBarFancy_multi():
     def tocrunch(c, m):
         for x in range(400):
             i = random.randint(0, n - 1)
-            with c[i].get_lock():        # as += operator is not
-                c[i].value += 1          # atomic we need a lock
-                                         # see docs.python.org
-                                         # -> shared-ctypes-objects
+            with c[i].get_lock():  # as += operator is not
+                c[i].value += 1  # atomic we need a lock
+                # see docs.python.org
+                # -> shared-ctypes-objects
             if c[i].value > m[i].value:  # once max_count is reached
-                sbm.reset(i)             # reset the bar
+                sbm.reset(i)  # reset the bar
             time.sleep(0.01)
-
 
     n = 4
     max_count_value = 25
 
-    count = []          # list of shared uint
-    max_count = []      # list of shared uint
-    prepend = []        # list of text to prepend each bar
+    count = []  # list of shared uint
+    max_count = []  # list of shared uint
+    prepend = []  # list of text to prepend each bar
     for i in range(n):  # fill the lists
         count.append(pr.UnsignedIntValue(0))
         max_count.append(pr.UnsignedIntValue(max_count_value))
-        prepend.append('_{}_:'.format(i + 1))
+        prepend.append("_{}_:".format(i + 1))
 
     # note: count and max_count are now lists of scharedctypes
-    with pr.ProgressBarFancy(count     = count,
-                             max_count = max_count,
-                             interval  = 0.3,
-                             prepend   = prepend,
-                             width     = 'auto') as sbm:
+    with pr.ProgressBarFancy(
+        count=count, max_count=max_count, interval=0.3, prepend=prepend, width="auto"
+    ) as sbm:
         sbm.start()
         tocrunch(count, max_count)
 

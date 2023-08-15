@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Progression
 ===========
@@ -56,8 +55,6 @@ Feedback:
 
 feel free to drop a line in the `GitHub Issue section <https://github.com/cimatosa/progression/issues>`_
 """
-
-__version__ = '0.1.4'
 
 from .progress import *
 from . import decorators
